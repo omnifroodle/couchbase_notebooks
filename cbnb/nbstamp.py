@@ -29,8 +29,13 @@ def _source(cell: dict[str, Any]) -> str:
 
 
 def source_hash(nb: dict[str, Any]) -> str:
-    """Hash of every cell's type and source. Outputs and metadata are ignored."""
-    payload = [(cell.get("cell_type"), _source(cell)) for cell in nb.get("cells", [])]
+    """Hash of the code cells' sources, in order.
+
+    Only code produces outputs, so only code can make them stale. Markdown is
+    left out on purpose: fixing prose to match a run should not demand a new
+    run.
+    """
+    payload = [_source(cell) for cell in nb.get("cells", []) if cell.get("cell_type") == "code"]
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()[:16]
 
 
@@ -71,14 +76,14 @@ def verify(nb: dict[str, Any]) -> tuple[str, str]:
 
     * ``"shipped"``   -- outputs match the sources.
     * ``"unshipped"`` -- no outputs and no stamp; fine while a notebook is in progress.
-    * ``"stale"``     -- sources changed since the last ship.
+    * ``"stale"``     -- code changed since the last ship.
     * ``"unstamped"`` -- outputs exist but did not come from a ship run.
     """
     recorded = (nb.get("metadata", {}).get(STAMP_KEY) or {}).get("source_hash")
     if recorded:
         if recorded == source_hash(nb):
             return "shipped", "outputs match the sources"
-        return "stale", "cell sources changed since the last `make ship` -- outputs are stale"
+        return "stale", "code cells changed since the last `make ship` -- outputs are stale"
     if has_outputs(nb):
         return "unstamped", "has outputs that did not come from `make ship` (interactive run saved?)"
     return "unshipped", "not shipped yet -- no stored outputs"
