@@ -1,0 +1,10 @@
+# Everything the notebooks need. `pip install -r requirements.txt`
+# (or just run the first cell of any notebook, which installs what is missing).
+couchbase>=4.6
+openai>=1.40
+pydantic>=2.6
+python-dotenv>=1.0
+numpy>=1.24
+pandas>=2.0
+sentence-transformers>=3.0
+matplotlib>=3.7
