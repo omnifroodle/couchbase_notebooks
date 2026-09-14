@@ -11,6 +11,10 @@ a notebook:
   tries strict ``json_schema``, falls back to ``json_object``, then to plain
   prompting with a schema in the system message, and remembers which rung of
   the ladder your provider actually reached.
+* **Retries for flaky replies.** Aggregators route to whichever upstream host is
+  free, and some occasionally return ``{}`` or an empty message for a request
+  that works fine a second later. Those are retried with backoff before the
+  client concludes a mechanism is unsupported.
 * **A disk cache.** Notebook cells get re-run. Identical requests are answered
   from ``~/.cache/cbnb/llm`` instead of being paid for twice.
 * **Token accounting.** ``llm.usage`` tells you what the demo cost, which is
@@ -132,6 +136,8 @@ class Usage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     seconds: float = 0.0
+    #: Replies that came back empty or invalid and were retried.
+    retries: int = 0
 
     @property
     def total_tokens(self) -> int:
@@ -142,6 +148,7 @@ class Usage:
             f"{self.calls} API calls ({self.cached_calls} served from cache), "
             f"{self.prompt_tokens:,} prompt + {self.completion_tokens:,} completion tokens, "
             f"{self.seconds:.1f}s"
+            + (f", {self.retries} bad replies retried" if self.retries else "")
         )
 
 
@@ -214,6 +221,10 @@ class LLM:
         api_key: overrides the provider's key environment variable.
         base_url: overrides the provider's base URL.
         temperature: default sampling temperature. ``0`` for classification work.
+        max_retries: HTTP-level retries (429s, 5xx, timeouts), handled by the
+            ``openai`` SDK with backoff that honours ``Retry-After``.
+        attempts: tries per structured-output mechanism when the reply is empty
+            or fails validation, before falling back to the next mechanism.
         cache: cache responses on disk. Set ``False`` (or ``CBNB_LLM_CACHE=0``)
             to measure real latency and token usage.
     """
@@ -230,6 +241,7 @@ class LLM:
         cache_dir: str | Path | None = None,
         max_retries: int = 3,
         timeout: float = 60.0,
+        attempts: int | None = None,
     ) -> None:
         provider = provider or os.environ.get("CBNB_LLM_PROVIDER", "openai")
         if provider not in PROVIDERS:
@@ -254,6 +266,8 @@ class LLM:
         self.api_key = key or "not-needed"
 
         self.temperature = temperature
+        if attempts is not None:
+            self.attempts = attempts
         self.usage = Usage()
         self._mode = self.provider.structured_mode
         self._cache_dir = Path(cache_dir or Path.home() / ".cache" / "cbnb" / "llm")
@@ -271,6 +285,9 @@ class LLM:
             max_retries=max_retries,
             timeout=timeout,
         )
+
+    #: Class-level so an instance created before an autoreload still has it.
+    attempts: int = 3
 
     def __repr__(self) -> str:
         return f"LLM(provider={self.provider.key!r}, model={self.model!r})"
@@ -384,31 +401,61 @@ class LLM:
                 self.usage.cached_calls += 1
                 return schema.model_validate(hit)
 
+        from openai import (
+            APIConnectionError,
+            APITimeoutError,
+            BadRequestError,
+            InternalServerError,
+            RateLimitError,
+            UnprocessableEntityError,
+        )
+        from pydantic import ValidationError
+
+        # Still failing after the SDK's own HTTP retries: worth another go.
+        transient = (APIConnectionError, APITimeoutError, InternalServerError, RateLimitError)
+        # The endpoint rejected the request shape -- this mechanism is unsupported.
+        unsupported = (BadRequestError, UnprocessableEntityError)
+        # Anything else (bad key, unknown model, ...) is raised as-is.
+
         start_at = _MODES.index(self._mode)
         last_error: Exception | None = None
         for mode in _MODES[start_at:]:
-            try:
-                text = self._call_structured(
-                    mode,
-                    user=user,
-                    system=system,
-                    schema=schema,
-                    json_schema=json_schema,
-                    temperature=payload["temperature"],
-                    max_tokens=max_tokens,
-                )
-                parsed = schema.model_validate_json(_extract_json(text))
-            except Exception as exc:  # noqa: BLE001 - any failure means "try the next rung"
-                last_error = exc
-                continue
-            if mode != self._mode:
-                self._mode = mode
-            self._cache_put(path, payload, parsed.model_dump())
-            return parsed
+            for attempt in range(self.attempts):
+                if attempt:
+                    time.sleep(min(2**attempt, 10))
+                try:
+                    text = self._call_structured(
+                        mode,
+                        user=user,
+                        system=system,
+                        schema=schema,
+                        json_schema=json_schema,
+                        temperature=payload["temperature"],
+                        max_tokens=max_tokens,
+                    )
+                except unsupported as exc:
+                    last_error = exc
+                    break
+                except transient as exc:
+                    last_error = exc
+                    continue
+                try:
+                    parsed = schema.model_validate_json(_extract_json(text))
+                except ValidationError as exc:
+                    # Empty message, "{}", or truncated JSON. Usually a flaky
+                    # upstream rather than an unsupported mechanism.
+                    last_error = exc
+                    self.usage.retries += 1
+                    continue
+                if mode != self._mode:
+                    self._mode = mode
+                self._cache_put(path, payload, parsed.model_dump())
+                return parsed
 
         raise RuntimeError(
-            f"{self.provider.label} model {self.model!r} could not produce valid "
-            f"{schema.__name__} JSON via any supported mode"
+            f"{self.provider.label} model {self.model!r} did not return valid "
+            f"{schema.__name__} JSON ({self.attempts} attempts per mechanism, "
+            f"{', '.join(_MODES[start_at:])}). Last reply error: {last_error}"
         ) from last_error
 
     def _call_structured(
@@ -477,19 +524,34 @@ class LLM:
 
         Classifying a few hundred documents one at a time is the slowest part of
         these notebooks; the endpoints are all happy to be called in parallel.
+
+        Every item runs even if some fail, so all the successes are cached; the
+        failures are then raised together. Re-running only repeats the failures.
         """
         results: list[Any] = [None] * len(items)
+        errors: dict[int, Exception] = {}
         done = 0
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = {pool.submit(fn, item): i for i, item in enumerate(items)}
             for future in as_completed(futures):
                 index = futures[future]
-                results[index] = future.result()
+                try:
+                    results[index] = future.result()
+                except Exception as exc:  # noqa: BLE001 - collected and re-raised below
+                    errors[index] = exc
                 done += 1
                 if progress and (done % 25 == 0 or done == len(items)):
-                    print(f"\r  {done}/{len(items)}", end="", flush=True)
+                    failed = f" ({len(errors)} failed)" if errors else ""
+                    print(f"\r  {done}/{len(items)}{failed}", end="", flush=True)
         if progress:
             print()
+        if errors:
+            listed = "\n".join(f"  - {items[i]!r}: {exc}" for i, exc in list(errors.items())[:5])
+            more = f"\n  ... and {len(errors) - 5} more" if len(errors) > 5 else ""
+            raise RuntimeError(
+                f"{len(errors)} of {len(items)} items failed. The rest succeeded and are "
+                f"cached, so re-running this cell only retries these:\n{listed}{more}"
+            ) from next(iter(errors.values()))
         return results
 
     # ------------------------------------------------------------- embeddings
