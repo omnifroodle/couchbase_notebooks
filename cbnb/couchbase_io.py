@@ -242,6 +242,34 @@ def vector_index_definition(
     }
 
 
+#: When each index definition was last pushed, by index name. A rebuild starts
+#: a moment after the update is accepted; until then the old index still
+#: answers, and readiness checks would pass too early.
+_UPDATED_AT: dict[str, float] = {}
+
+#: Field settings the Search service omits from a stored definition when they
+#: hold their default value. Filled back in before comparing definitions.
+_FIELD_DEFAULTS = {
+    "include_in_all": False,
+    "include_term_vectors": False,
+    "docvalues": False,
+    "store": False,
+}
+
+
+def _normalize_types(types: dict[str, Any] | None) -> dict[str, Any]:
+    """A type mapping with omitted defaults restored, so equal means equal."""
+    import copy
+
+    normalized = copy.deepcopy(types or {})
+    for mapping in normalized.values():
+        for prop in (mapping.get("properties") or {}).values():
+            for fld in prop.get("fields") or []:
+                for key, default in _FIELD_DEFAULTS.items():
+                    fld.setdefault(key, default)
+    return normalized
+
+
 def ensure_vector_index(
     cluster,
     *,
@@ -291,10 +319,11 @@ def ensure_vector_index(
         existing = None
 
     if existing is not None:
-        wanted = definition["params"]["mapping"]["types"]
-        current = (existing.params or {}).get("mapping", {}).get("types")
+        wanted = _normalize_types(definition["params"]["mapping"]["types"])
+        current = _normalize_types((existing.params or {}).get("mapping", {}).get("types"))
         if current == wanted:
-            # Unchanged. Re-upserting would trigger a full rebuild for nothing.
+            # Unchanged. Re-upserting would rebuild the whole index for nothing,
+            # and queries fail with "pindex not available" while it does.
             return manager
 
     manager.upsert_index(
@@ -310,6 +339,7 @@ def ensure_vector_index(
             plan_params=definition["planParams"],
         )
     )
+    _UPDATED_AT[index_name] = time.time()
     return manager
 
 
@@ -321,30 +351,56 @@ def wait_for_index(
     index_name: str,
     expected: int,
     timeout: int = 300,
-    poll: int = 5,
+    poll: int = 3,
+    stable_checks: int = 2,
+    grace_after_update: int = 10,
 ) -> int:
-    """Block until the index has ingested ``expected`` documents.
+    """Block until the index answers queries over all ``expected`` documents.
 
     Search indexing is asynchronous. Without this, the first query in a
-    freshly-run notebook quietly returns nothing.
+    freshly-run notebook quietly returns nothing -- or, while an index is being
+    rebuilt, fails with "pindex not available".
+
+    Readiness is judged by running a match-all query, not by the indexed
+    document count: the count stays at its old value during a rebuild, while
+    the query fails until every partition is serving. It must succeed
+    ``stable_checks`` times in a row, and -- if :func:`ensure_vector_index`
+    just changed the definition -- not before ``grace_after_update`` seconds
+    have passed, so a rebuild that has not started yet isn't mistaken for a
+    finished one.
     """
-    manager = cluster.bucket(bucket_name).scope(scope_name).search_indexes()
+    import couchbase.search as search
+    from couchbase.exceptions import CouchbaseException
+    from couchbase.options import SearchOptions
+
+    scope = cluster.bucket(bucket_name).scope(scope_name)
+    request = search.SearchRequest.create(search.MatchAllQuery())
     deadline = time.time() + timeout
-    count = 0
+    count, streak, status = 0, 0, "waiting"
     while time.time() < deadline:
         try:
-            count = manager.get_indexed_documents_count(index_name)
-        except Exception:  # noqa: BLE001 - index still being created
-            count = 0
-        print(f"\r  indexed {count}/{expected}", end="", flush=True)
-        if count >= expected:
+            result = scope.search(index_name, request, SearchOptions(limit=1))
+            list(result.rows())
+            metrics = result.metadata().metrics()
+            count = metrics.total_rows()
+            ready = metrics.error_partition_count() == 0 and count >= expected
+            status = "ready" if ready else "indexing"
+        except CouchbaseException:
+            ready, status = False, "not serving yet"
+        settling = time.time() - _UPDATED_AT.get(index_name, 0) < grace_after_update
+        if ready and settling:
+            ready, status = False, "definition just changed"
+        streak = streak + 1 if ready else 0
+        print(f"\r  indexed {count}/{expected} ({status})   ", end="", flush=True)
+        if streak >= stable_checks:
             print()
             return count
         time.sleep(poll)
     print()
     raise TimeoutError(
-        f"Index {index_name!r} reached {count}/{expected} documents in {timeout}s. "
-        f"Check the index status in the Capella UI (Data Tools -> Search)."
+        f"Index {index_name!r} was not fully queryable after {timeout}s "
+        f"({count}/{expected} documents, last status: {status}). "
+        f"Check the index in the Capella UI (Data Tools -> Search)."
     )
 
 
