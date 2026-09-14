@@ -80,6 +80,26 @@ def get(
     return value or ""
 
 
+def mask_host(connection_string: str) -> str:
+    """Hide the identifying part of a cluster address.
+
+    Notebook outputs get committed and rendered on GitHub, and a Capella
+    hostname tells the internet exactly where a cluster is.
+    ``couchbases://cb.abc123.cloud.couchbase.com`` becomes
+    ``cb.***.cloud.couchbase.com``. Local addresses are shown as-is.
+    """
+    hosts = connection_string.split("//")[-1].split("?")[0].split("/")[0]
+    host = hosts.split(",")[0].split(":")[0].strip()
+    if not host:
+        return "not set"
+    if host in {"localhost", "127.0.0.1", "::1"} or host.startswith("192.168.") or host.startswith("10."):
+        return host
+    labels = host.split(".")
+    if host.endswith(".cloud.couchbase.com") and len(labels) >= 5:
+        return f"{labels[0]}.***.cloud.couchbase.com"
+    return "***." + ".".join(labels[-2:]) if len(labels) > 2 else "***"
+
+
 @dataclass
 class Settings:
     """Everything a notebook needs to reach Couchbase and a model provider."""
@@ -100,7 +120,8 @@ class Settings:
     extras: dict[str, str] = field(default_factory=dict)
 
     def summary(self) -> str:
-        host = self.cb_connection_string.split("//")[-1].split("?")[0] or "not set"
+        """One line describing the setup, safe to leave in a published output."""
+        host = mask_host(self.cb_connection_string)
         return (
             f"Couchbase: {host} (bucket {self.cb_bucket!r}) | "
             f"LLM: {self.llm_provider}/{self.llm_model or 'default'} | "

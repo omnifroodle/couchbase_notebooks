@@ -4,7 +4,7 @@
 Run: python scripts/check_notebooks.py [notebook ...]
 
 Checks that every notebook is valid, starts with the shared bootstrap cell, has
-no credential-shaped string in a stored output, and that any stored outputs
+no credential-shaped string, cluster hostname or .env secret anywhere in it, and that any stored outputs
 came from a `make ship` run of the current sources. Notebook outputs are
 committed on purpose -- GitHub renders them, and that rendering is how most
 people read these -- which makes a leaked key a real risk.
@@ -32,6 +32,34 @@ SECRET_PATTERNS = [
 
 BOOTSTRAP_MARKERS = ["import cbnb", "cbnb.bootstrap("]
 
+# A Capella hostname identifies a specific cluster. Placeholders used in the
+# docs (cb.xxxxxxxx..., cb.abc123...) and masked output (cb.***...) are fine.
+CAPELLA_HOST = re.compile(r"\b[a-z0-9-]+\.([a-z0-9]+)\.cloud\.couchbase\.com", re.IGNORECASE)
+PLACEHOLDER_CLUSTER_IDS = {"abc123", "xxxxxxxx"}
+
+
+def local_secret_values() -> list[tuple[str, str]]:
+    """Values from this checkout's .env that must never appear in a notebook.
+
+    Catches leaks no pattern would: an unusual key format, a cluster that
+    isn't on Capella. Only works where .env exists -- locally, not in CI.
+    """
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return []
+    values = []
+    for line in env_path.read_text().splitlines():
+        key, sep, value = line.partition("=")
+        key, value = key.strip(), value.strip().strip("\"'")
+        if not sep or key.startswith("#") or len(value) < 8:
+            continue
+        if key.endswith(("PASSWORD", "API_KEY", "SECRET", "TOKEN")):
+            values.append((key, value))
+        elif key == "CB_CONNECTION_STRING":
+            host = value.split("//")[-1].split("?")[0].split(",")[0].split(":")[0]
+            values.append((key + " host", host))
+    return values
+
 
 def check(path: Path) -> tuple[list[str], list[str]]:
     """Return (problems, warnings) for one notebook."""
@@ -43,6 +71,7 @@ def check(path: Path) -> tuple[list[str], list[str]]:
         return [f"invalid JSON: {exc}"]
 
     cells = nb.get("cells", [])
+    secrets = local_secret_values()
     code_cells = [c for c in cells if c.get("cell_type") == "code"]
     if not code_cells:
         problems.append("no code cells")
@@ -62,6 +91,13 @@ def check(path: Path) -> tuple[list[str], list[str]]:
             for pattern, label in SECRET_PATTERNS:
                 if pattern.search(text):
                     problems.append(f"cell {i}: possible {label}")
+            for match in CAPELLA_HOST.finditer(text):
+                cluster_id = match.group(1).lower()
+                if cluster_id not in PLACEHOLDER_CLUSTER_IDS and set(cluster_id) != {"x"}:
+                    problems.append(f"cell {i}: Capella cluster hostname (mask it; see cbnb.config.mask_host)")
+            for key, value in secrets:
+                if value in text:
+                    problems.append(f"cell {i}: contains the value of {key} from .env")
 
     status, message = verify(nb)
     if status in {"stale", "unstamped"}:

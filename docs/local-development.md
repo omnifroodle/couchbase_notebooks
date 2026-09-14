@@ -76,8 +76,11 @@ when:
 Both come with the fix: `make ship`, or `git restore notebooks/<file>` to throw the change
 away. A notebook with no outputs and no stamp is fine — that's a notebook in progress.
 
-It also fails on credential-shaped strings anywhere in a notebook, and warns about the
-`OWNER/REPO` placeholder.
+It also fails when a notebook contains anything that would identify or unlock your
+setup: credential-shaped strings, a Capella cluster hostname, or — when run locally — any
+password, API key or cluster host from your `.env`. The setup cell's status line masks the
+hostname (`cb.***.cloud.couchbase.com`) for this reason. It warns about the `OWNER/REPO`
+placeholder.
 
 Install the check as a pre-commit hook once per clone:
 
