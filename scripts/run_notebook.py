@@ -7,7 +7,9 @@
 
 By default the executed copy goes to ``build/`` (gitignored) so a test run never
 touches the committed notebook. ``--inplace`` is the "ship it" run: outputs are
-written back into the notebook so GitHub renders them.
+written back into the notebook so GitHub renders them, and the notebook is
+stamped with a hash of its sources (see ``cbnb/nbstamp.py``). A failed
+``--inplace`` run never writes to the notebook.
 
 Runs from ``.env``, never prompts, and stops at the first failing cell with its
 source and traceback.
@@ -100,8 +102,9 @@ def main() -> int:
     if args.no_cache:
         os.environ["CBNB_LLM_CACHE"] = "0"
 
-    out = path if args.inplace else ROOT / "build" / path.name
-    out.parent.mkdir(exist_ok=True)
+    build_copy = ROOT / "build" / path.name
+    build_copy.parent.mkdir(exist_ok=True)
+    out = path if args.inplace else build_copy
 
     n_code = sum(c.cell_type == "code" for c in nb.cells)
     print(f"Running {path.relative_to(ROOT)} ({n_code} code cells) -> {out.relative_to(ROOT)}")
@@ -131,13 +134,21 @@ def main() -> int:
     try:
         client.execute()
     except CellExecutionError as exc:
-        nbformat.write(nb, out)
-        print(f"\nFailed. Partial output saved to {out.relative_to(ROOT)}\n")
+        # Always to build/, even with --inplace: a half-run notebook is exactly
+        # the accidental edit we do not want in the committed file.
+        nbformat.write(nb, build_copy)
+        print(f"\nFailed. Partial output saved to {build_copy.relative_to(ROOT)}"
+              f"{' (the notebook itself was not modified)' if args.inplace else ''}\n")
         message = re.sub(r"\x1b\[[0-9;]*m", "", str(exc))  # IPython colours the traceback
         lines = [ln for ln in message.splitlines() if ln.strip()]
         print("\n".join(lines[-25:]))
         return 1
 
+    if args.inplace:
+        import cbnb
+        from cbnb.nbstamp import stamp
+
+        stamp(nb, version=cbnb.__version__)
     nbformat.write(nb, out)
     print(f"\nDone in {time.perf_counter() - started:.0f}s -> {out.relative_to(ROOT)}")
     return 0

@@ -2,15 +2,17 @@
 PY := .venv/bin/python
 NB ?= 01
 
-.PHONY: help setup lab run run-to ship check
+.PHONY: help setup lab run run-to scratch ship check hooks
 
 help:
 	@echo "make setup            create .venv and install everything"
 	@echo "make lab              open Jupyter Lab on the notebooks"
 	@echo "make run NB=01        execute a notebook headless -> build/ (committed file untouched)"
 	@echo "make run-to NB=01 UNTIL='regex'   run only the cells before the first match"
+	@echo "make scratch NB=01    copy a notebook to build/scratch/ to explore without editing it"
 	@echo "make ship NB=01       execute fresh (no LLM cache), store outputs in the notebook, run checks"
 	@echo "make check            lint + notebook checks"
+	@echo "make hooks            run the notebook checks before every git commit"
 
 setup:
 	python3.11 -m venv .venv
@@ -27,6 +29,15 @@ run:
 run-to:
 	$(PY) scripts/run_notebook.py $(NB) --stop-before '$(UNTIL)'
 
+# Interactive exploration on a throwaway copy. Keeps an existing scratch copy
+# (it may have work in it) unless FRESH=1.
+scratch:
+	@src=$$(ls notebooks/$(NB)*.ipynb | head -1); dst=build/scratch/$$(basename $$src); \
+	mkdir -p build/scratch; \
+	if [ -f "$$dst" ] && [ -z "$(FRESH)" ]; then echo "Reusing $$dst (FRESH=1 to recopy)"; \
+	else cp "$$src" "$$dst" && echo "Copied $$src -> $$dst"; fi; \
+	if command -v code >/dev/null; then code "$$dst"; else echo "Open $$dst"; fi
+
 ship:
 	$(PY) scripts/run_notebook.py $(NB) --inplace --no-cache
 	$(PY) scripts/check_notebooks.py
@@ -34,3 +45,8 @@ ship:
 check:
 	.venv/bin/ruff check cbnb scripts
 	$(PY) scripts/check_notebooks.py
+
+hooks:
+	@printf '#!/bin/sh\n# Installed by `make hooks`. Remove this file to disable.\nexec .venv/bin/python scripts/check_notebooks.py\n' > .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "pre-commit hook installed: notebook checks run before every commit"

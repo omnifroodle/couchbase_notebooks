@@ -12,34 +12,25 @@ make setup     # .venv on Python 3.11, installs cbnb in editable mode, creates .
 Fill in `.env`: the `CB_*` values ([`capella-setup.md`](capella-setup.md)) and one model
 provider key. Add your current IP to the Capella allow list.
 
-## The editing loop
+## Three modes, kept apart
 
-Open the notebook in **VS Code** (the repo's `.vscode/settings.json` already points at
-`.venv`) or run `make lab` for Jupyter Lab.
+Most accidental notebook edits happen while *testing*: a debug `print` that gets
+saved, outputs from a half-finished session, editor metadata. So testing never opens
+the real file.
 
-Run cells as normal. Three things make this quicker than it sounds:
+| I want to… | Do | Touches `notebooks/`? |
+| --- | --- | --- |
+| Check it runs top to bottom | `make run NB=01` | No — writes `build/` |
+| Poke at it interactively | `make scratch NB=01` | No — a copy in `build/scratch/` |
+| Change the notebook | open `notebooks/01_….ipynb` on purpose | Yes |
+| Publish outputs for GitHub | `make ship NB=01` | Yes — outputs + stamp |
 
-- **Helpers reload themselves.** `cbnb.bootstrap()` turns on autoreload in a local checkout,
-  so an edit to `cbnb/*.py` applies to the next cell you run — no kernel restart.
-  (`CBNB_AUTORELOAD=0` turns it off.)
-- **LLM calls are cached on disk.** Re-running a cell with the same prompt costs nothing and
-  returns instantly. Change the prompt and only the changed calls hit the API. Use
-  `CBNB_LLM_CACHE=0` or `LLM(cache=False)` to measure real cost and latency.
-- **Couchbase setup is idempotent.** Re-running the load and index cells updates in place.
+### Test: `make run`
 
-## Top-to-bottom runs
-
-Interactive sessions hide ordering bugs: a variable defined in a cell you later deleted, a
-cell that only works the second time. Before shipping, run it the way a reader will:
-
-```bash
-make run NB=01
-```
-
-Executes every cell in a fresh kernel, headless, and writes the result to `build/`
-(gitignored) — the committed notebook is not touched. It reads only `.env`, never prompts,
-checks for missing settings before starting, and stops at the first failing cell with its
-traceback.
+Executes every cell in a fresh kernel, headless, and writes the result to `build/`. It reads
+only `.env`, never prompts, checks for missing settings before starting, and stops at the
+first failing cell with its traceback. Interactive sessions hide ordering bugs — a variable
+from a cell you deleted, a cell that only works the second time — and this doesn't.
 
 Run just the first part, e.g. everything before the first LLM call:
 
@@ -47,15 +38,61 @@ Run just the first part, e.g. everything before the first LLM call:
 make run-to NB=01 UNTIL='from cbnb.llm import'
 ```
 
-## Shipping
+### Explore: `make scratch`
+
+Copies the notebook to `build/scratch/` and opens the copy in VS Code. Break it freely.
+A second `make scratch` reopens the same copy so you don't lose work; `FRESH=1` recopies.
+If you find a fix worth keeping, make it in the real notebook deliberately.
+
+### Edit
+
+Open the real notebook in VS Code or `make lab`. Two things make iterating quick:
+
+- **Helpers reload themselves.** In a local checkout, `cbnb.bootstrap()` turns on
+  autoreload, so an edit to `cbnb/*.py` applies to the next cell you run — no kernel
+  restart. (`CBNB_AUTORELOAD=0` turns it off.) Kernels started before a helper was
+  *added* still need one restart.
+- **LLM calls are cached on disk.** Re-running a cell with the same prompt costs nothing.
+  `CBNB_LLM_CACHE=0` or `LLM(cache=False)` to measure real cost and latency.
+
+The Couchbase cells are idempotent, so re-running them is safe.
+
+### Ship: `make ship`
+
+Runs the notebook fresh with the LLM cache off, writes the outputs **into** the notebook so
+GitHub renders them, strips editor metadata, and **stamps** the notebook with a hash of its
+cell sources. Then it runs the checks. If any cell fails, the notebook is not modified — the
+partial run goes to `build/`.
+
+## Guard rails
+
+`scripts/check_notebooks.py` (run by `make check`, CI, and the git hook) fails a notebook
+when:
+
+- **its sources changed since the last ship** — the stored outputs no longer describe the
+  code, or something was edited by accident; or
+- **it has outputs that didn't come from a ship** — an interactive session got saved.
+
+Both come with the fix: `make ship`, or `git restore notebooks/<file>` to throw the change
+away. A notebook with no outputs and no stamp is fine — that's a notebook in progress.
+
+It also fails on credential-shaped strings anywhere in a notebook, and warns about the
+`OWNER/REPO` placeholder.
+
+Install the check as a pre-commit hook once per clone:
 
 ```bash
-make ship NB=01
+make hooks
 ```
 
-Runs fresh with the LLM cache off, writes the outputs **into** the notebook so GitHub
-renders them, then runs the notebook checks (bootstrap cell present, nothing that looks
-like a credential in any output). Review the diff, commit.
+Delete `.git/hooks/pre-commit` to remove it, or `git commit --no-verify` to skip it once.
+
+### Getting back to a good state
+
+```bash
+git restore notebooks/01_hypothetical_classification.ipynb   # discard all uncommitted changes
+git diff --stat                                                # see what else moved
+```
 
 ## What local runs don't cover
 

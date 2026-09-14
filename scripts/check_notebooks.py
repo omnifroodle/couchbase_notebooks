@@ -3,8 +3,9 @@
 
 Run: python scripts/check_notebooks.py [notebook ...]
 
-Checks that every notebook is valid, starts with the shared bootstrap cell, and
-has no credential-shaped string in a stored output. Notebook outputs are
+Checks that every notebook is valid, starts with the shared bootstrap cell, has
+no credential-shaped string in a stored output, and that any stored outputs
+came from a `make ship` run of the current sources. Notebook outputs are
 committed on purpose -- GitHub renders them, and that rendering is how most
 people read these -- which makes a leaked key a real risk.
 """
@@ -17,6 +18,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from cbnb.nbstamp import verify  # noqa: E402 - needs ROOT on sys.path
 
 SECRET_PATTERNS = [
     (re.compile(r"sk-[A-Za-z0-9_\-]{20,}"), "OpenAI-style API key"),
@@ -59,6 +63,12 @@ def check(path: Path) -> tuple[list[str], list[str]]:
                 if pattern.search(text):
                     problems.append(f"cell {i}: possible {label}")
 
+    status, message = verify(nb)
+    if status in {"stale", "unstamped"}:
+        problems.append(f"{message}. Run `make ship`, or `git restore {path.relative_to(ROOT)}`")
+    elif status == "unshipped":
+        warnings.append(message)
+
     if "OWNER/REPO" in path.read_text():
         warnings.append(
             "placeholder OWNER/REPO in REPO_URL and/or the Colab badge — "
@@ -69,7 +79,7 @@ def check(path: Path) -> tuple[list[str], list[str]]:
 
 
 def main(argv: list[str]) -> int:
-    paths = [Path(a) for a in argv[1:]] or sorted((ROOT / "notebooks").glob("*.ipynb"))
+    paths = [Path(a).resolve() for a in argv[1:]] or sorted((ROOT / "notebooks").glob("*.ipynb"))
     if not paths:
         print("No notebooks found.")
         return 0
