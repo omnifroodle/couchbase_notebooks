@@ -87,6 +87,14 @@ class Embedder:
                     "Run cbnb.bootstrap(extras=['local-embeddings']), or use "
                     "Embedder(backend='api')."
                 ) from exc
+            try:
+                # Model loading draws a progress bar that becomes a Jupyter
+                # widget in notebooks; not every front end can render those.
+                from transformers.utils import logging as transformers_logging
+
+                transformers_logging.disable_progress_bar()
+            except ImportError:
+                pass
             self._model_obj = SentenceTransformer(self.model, device=self._device)
         return self._model_obj
 
@@ -117,25 +125,17 @@ class Embedder:
             self._dims = int(vectors.shape[1])
             return vectors
 
-        if self.backend == "local":
-            model = self._load_local()
-            vectors = model.encode(
-                items,
-                batch_size=batch_size,
-                convert_to_numpy=True,
-                show_progress_bar=progress,
-            )
-        else:
-            chunks = []
-            for start in range(0, len(items), batch_size):
-                chunk = items[start : start + batch_size]
-                chunks.extend(self._llm.embed(chunk, model=self.model))  # type: ignore[union-attr]
-                if progress:
-                    print(f"\r  embedded {min(start + batch_size, len(items))}/{len(items)}",
-                          end="", flush=True)
+        # Plain-text progress, like the rest of cbnb. sentence-transformers' own
+        # bar is a tqdm widget in notebooks, which some front ends can't render.
+        chunks = []
+        for start in range(0, len(items), batch_size):
+            chunks.append(self._encode_batch(items[start : start + batch_size]))
             if progress:
-                print()
-            vectors = np.array(chunks)
+                print(f"\r  embedded {min(start + batch_size, len(items))}/{len(items)}",
+                      end="", flush=True)
+        if progress:
+            print()
+        vectors = np.concatenate(chunks)
 
         vectors = np.asarray(vectors, dtype=np.float32)
         if vectors.ndim == 1:
@@ -147,6 +147,13 @@ class Embedder:
         if path is not None:
             np.save(path, vectors)
         return vectors
+
+    def _encode_batch(self, batch: list[str]) -> np.ndarray:
+        if self.backend == "local":
+            return self._load_local().encode(
+                batch, batch_size=len(batch), convert_to_numpy=True, show_progress_bar=False
+            )
+        return np.array(self._llm.embed(batch, model=self.model))  # type: ignore[union-attr]
 
     def encode_one(self, text: str, *, cache: bool = True) -> np.ndarray:
         """Encode a single string to a 1-D vector."""

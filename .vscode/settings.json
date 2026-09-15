@@ -1,5 +1,8 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "jupyter.notebookFileRoot": "${fileDirname}",
-  "python.terminal.activateEnvironment": true
+  "python.terminal.activateEnvironment": true,
+  // Category paths ("Furniture / Living Room Furniture / ...") look like file
+  // paths, and VS Code turns every " / " in cell output into a link.
+  "notebook.output.linkifyFilePaths": false
 }

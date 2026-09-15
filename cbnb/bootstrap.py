@@ -12,6 +12,7 @@ The notebooks run in three places and this module papers over the differences:
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import os
 import re
 import subprocess
@@ -100,13 +101,13 @@ def _load_colab_secrets() -> list[str]:
 
 
 def _missing(requirements: list[tuple[str, str]]) -> list[str]:
-    missing = []
-    for module, requirement in requirements:
-        try:
-            importlib.import_module(module)
-        except ImportError:
-            missing.append(requirement)
-    return missing
+    """Requirements whose module is not installed.
+
+    Uses ``find_spec`` rather than importing: importing sentence-transformers
+    pulls in transformers and huggingface_hub, which read their progress-bar
+    settings at import time -- before ``bootstrap`` has set them.
+    """
+    return [req for module, req in requirements if importlib.util.find_spec(module) is None]
 
 
 def _pip_install(requirements: list[str]) -> None:
@@ -119,8 +120,9 @@ def _pip_install(requirements: list[str]) -> None:
 def _quiet_model_downloads() -> None:
     """Hide Hugging Face progress bars and token nags.
 
-    They are noise in a live session and worse in a committed output, where
-    GitHub renders every carriage-return frame of a progress bar.
+    They are noise in a live session and worse in a committed output. In a
+    notebook they also render as Jupyter widgets, which not every front end can
+    display -- VS Code in the browser (Codespaces) shows a renderer error.
     """
     os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
     os.environ.setdefault("HF_HUB_VERBOSITY", "error")
@@ -169,6 +171,9 @@ def bootstrap(extras: list[str] | None = None, quiet: bool = False) -> Settings:
     Returns:
         A populated :class:`cbnb.config.Settings`.
     """
+    # First: libraries read these settings when they are imported.
+    _quiet_model_downloads()
+
     requirements = list(CORE_REQUIREMENTS)
     for extra in extras or []:
         if extra not in EXTRA_REQUIREMENTS:
@@ -183,7 +188,6 @@ def bootstrap(extras: list[str] | None = None, quiet: bool = False) -> Settings:
     if root is not None and str(root) not in sys.path:
         sys.path.insert(0, str(root))
 
-    _quiet_model_downloads()
     autoreload = root is not None and _enable_autoreload()
     from_colab = _load_colab_secrets()
 
