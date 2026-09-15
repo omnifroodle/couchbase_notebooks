@@ -34,12 +34,19 @@ Then `make run NB=01` to execute a notebook headless, or open it in VS Code. The
 loop — autoreloading helpers, cached LLM calls, and shipping stored outputs — is in
 [`docs/local-development.md`](docs/local-development.md).
 
+*On GitHub Codespaces:*
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/omnifroodle/couchbase_notebooks?quickstart=1)
+— the full repo in a cloud container with VS Code, set up and ready to run. Credentials go in
+Codespaces secrets, which GitHub offers to collect when you create one. See
+[`docs/codespaces.md`](docs/codespaces.md).
+
 *On Colab:* click the badge on any notebook. The first cell installs everything. Put your
 credentials in Colab's secrets manager (the key icon) using the names from
 [`.env.example`](.env.example) — or just run the notebook and answer the prompts.
 
 Nothing is hardcoded and nothing is required up front: every setting resolves from the
-environment, then `.env`, then Colab secrets, then an interactive prompt.
+environment (where Codespaces secrets land), then `.env`, then Colab secrets, then an
+interactive prompt.
 
 ## What's in `cbnb/`
 

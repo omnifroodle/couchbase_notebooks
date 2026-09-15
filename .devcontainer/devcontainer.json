@@ -1,0 +1,56 @@
+{
+  "name": "Couchbase notebooks",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bookworm",
+
+  // 8 GB is the smallest codespace (2 cores). Enough for the local embedding
+  // model; readers can pick a bigger machine, but aren't forced to pay for one.
+  "hostRequirements": {
+    "memory": "8gb"
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  // Don't hand over the editor until .venv exists, or the notebook opens
+  // without a kernel.
+  "waitFor": "postCreateCommand",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "ms-toolsai.jupyter"]
+    },
+    "codespaces": {
+      "openFiles": ["notebooks/01_hypothetical_classification.ipynb"]
+    }
+  },
+
+  // Offered on the "create codespace" page and saved as the reader's own
+  // Codespaces secrets. All optional: the notebooks prompt for anything missing.
+  "secrets": {
+    "CB_CONNECTION_STRING": {
+      "description": "Capella public connection string, e.g. couchbases://cb.xxxxxxxx.cloud.couchbase.com",
+      "documentationUrl": "https://github.com/omnifroodle/couchbase_notebooks/blob/main/docs/capella-setup.md"
+    },
+    "CB_USERNAME": {
+      "description": "Capella database access username (not your Capella login)",
+      "documentationUrl": "https://github.com/omnifroodle/couchbase_notebooks/blob/main/docs/capella-setup.md"
+    },
+    "CB_PASSWORD": {
+      "description": "Capella database access password",
+      "documentationUrl": "https://github.com/omnifroodle/couchbase_notebooks/blob/main/docs/capella-setup.md"
+    },
+    "CB_BUCKET": {
+      "description": "Bucket the notebooks write to (default: demos)"
+    },
+    "CBNB_LLM_PROVIDER": {
+      "description": "openai, nanogpt, openrouter, groq, anthropic or custom (default: openai)",
+      "documentationUrl": "https://github.com/omnifroodle/couchbase_notebooks/blob/main/.env.example"
+    },
+    "CBNB_LLM_MODEL": {
+      "description": "Model id for that provider (default: the provider's default model)"
+    },
+    "OPENAI_API_KEY": { "description": "Only if CBNB_LLM_PROVIDER is openai" },
+    "NANOGPT_API_KEY": { "description": "Only if CBNB_LLM_PROVIDER is nanogpt" },
+    "OPENROUTER_API_KEY": { "description": "Only if CBNB_LLM_PROVIDER is openrouter" },
+    "GROQ_API_KEY": { "description": "Only if CBNB_LLM_PROVIDER is groq" },
+    "ANTHROPIC_API_KEY": { "description": "Only if CBNB_LLM_PROVIDER is anthropic" }
+  }
+}

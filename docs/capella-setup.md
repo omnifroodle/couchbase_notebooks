@@ -30,8 +30,8 @@ Record the username and password as `CB_USERNAME` / `CB_PASSWORD`.
 *Settings → Networking → Allowed IP Addresses → Add Allowed IP*.
 
 - Running locally: click **Add Current IP Address**.
-- Running on Colab: the runtime's IP changes and is not knowable in advance,
-  so you need `0.0.0.0/0`. That opens the cluster to the internet, protected
+- Running on Colab or GitHub Codespaces: the IP changes and is not knowable in
+  advance, so you need `0.0.0.0/0`. That opens the cluster to the internet, protected
   only by the database credential — fine for a throwaway demo cluster with
   public data, not for anything else. Delete the rule when you are done.
 
@@ -57,7 +57,10 @@ model provider's API key. Grant the notebook access to each one. Any other name 
 `CBNB_LLM_MODEL` to use something other than OpenAI. The setup cell lists which names it
 loaded.
 
-If you skip both, the notebooks prompt for what they need — passwords via
+On GitHub Codespaces, use Codespaces secrets with the same names — see
+[`codespaces.md`](codespaces.md).
+
+If you skip all of these, the notebooks prompt for what they need — passwords via
 `getpass`, so nothing sensitive lands in a stored output.
 
 ## Troubleshooting

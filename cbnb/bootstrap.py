@@ -39,6 +39,10 @@ def in_colab() -> bool:
     return "google.colab" in sys.modules or "COLAB_RELEASE_TAG" in os.environ
 
 
+def in_codespaces() -> bool:
+    return os.environ.get("CODESPACES") == "true"
+
+
 def repo_root() -> Path | None:
     """Directory holding the ``cbnb`` package, when running from a checkout."""
     here = Path(__file__).resolve()
@@ -187,7 +191,11 @@ def bootstrap(extras: list[str] | None = None, quiet: bool = False) -> Settings:
 
     cfg = load_settings()
     if not quiet:
-        where = "Colab" if in_colab() else "local" + (", autoreload on" if autoreload else "")
+        if in_colab():
+            where = "Colab"
+        else:
+            where = "Codespaces" if in_codespaces() else "local"
+            where += ", autoreload on" if autoreload else ""
         print(f"cbnb ready ({where}). {cfg.summary()}")
         if from_colab:
             print(f"Loaded from Colab secrets: {', '.join(from_colab)}")
