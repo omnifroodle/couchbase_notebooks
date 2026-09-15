@@ -40,6 +40,22 @@ Creating a codespace takes a few minutes the first time. `.devcontainer/post-cre
 The notebook opens when that finishes. If VS Code asks for a kernel, choose `.venv`.
 Reopening the same codespace later (the badge's *Resume* option) skips all of this.
 
+## Prefer JupyterLab?
+
+A codespace can open in JupyterLab instead of VS Code: at
+[github.com/codespaces](https://github.com/codespaces), open the **⋯** menu next to the
+codespace and choose the JupyterLab / Jupyter option (or make it your default editor in
+GitHub → Settings → Codespaces). It's the same codespace — files, secrets and `.venv` — and
+the notebooks' `python3` kernel is the same `.venv` Python VS Code uses.
+
+Codespaces created before this was set up report that the Jupyter server can't be found.
+Either rebuild the container (VS Code command palette → *Codespaces: Rebuild Container*), or
+run this once in the codespace's terminal, from the repository root:
+
+```bash
+sudo ln -sfn "$PWD/.venv/bin" /usr/local/jupyter
+```
+
 ## Keeping costs down
 
 - **Stop it when you're done** — *Codespaces* menu (bottom-left) → *Stop Current Codespace*.
