@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import re
 import subprocess
 import sys
 import warnings
@@ -45,6 +46,53 @@ def repo_root() -> Path | None:
         if (parent / "cbnb" / "__init__.py").exists():
             return parent
     return None
+
+
+#: Used only if .env.example cannot be found.
+_FALLBACK_SETTING_NAMES = [
+    "CB_CONNECTION_STRING", "CB_USERNAME", "CB_PASSWORD", "CB_BUCKET",
+    "CBNB_LLM_PROVIDER", "CBNB_LLM_MODEL", "CBNB_LLM_BASE_URL", "CBNB_LLM_API_KEY",
+    "OPENAI_API_KEY", "NANOGPT_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY", "ANTHROPIC_API_KEY",
+    "CBNB_EMBEDDING_BACKEND", "CBNB_EMBEDDING_MODEL",
+]
+
+
+def _setting_names() -> list[str]:
+    """Every setting name in .env.example, commented-out ones included."""
+    root = repo_root()
+    example = root / ".env.example" if root else None
+    if example is None or not example.exists():
+        return list(_FALLBACK_SETTING_NAMES)
+    names = re.findall(r"^\s*#?\s*([A-Z][A-Z0-9_]*)=", example.read_text(), flags=re.MULTILINE)
+    return list(dict.fromkeys(names)) or list(_FALLBACK_SETTING_NAMES)
+
+
+def _load_colab_secrets() -> list[str]:
+    """Copy settings from Colab's secrets manager into the environment.
+
+    Locally, settings come from ``.env``. On Colab they live in the secrets
+    manager (the key icon), and everything in ``cbnb`` reads the environment,
+    so this is the one place Colab secrets are bridged in. Values already in the
+    environment win. Returns the names loaded -- never the values.
+    """
+    if not in_colab():
+        return []
+    try:
+        from google.colab import userdata  # type: ignore[import-not-found]
+    except ImportError:
+        return []
+    loaded = []
+    for name in _setting_names():
+        if os.environ.get(name):
+            continue
+        try:
+            value = userdata.get(name)
+        except Exception:  # noqa: BLE001 - secret not defined, or access not granted
+            continue
+        if value:
+            os.environ[name] = value
+            loaded.append(name)
+    return loaded
 
 
 def _missing(requirements: list[tuple[str, str]]) -> list[str]:
@@ -133,6 +181,7 @@ def bootstrap(extras: list[str] | None = None, quiet: bool = False) -> Settings:
 
     _quiet_model_downloads()
     autoreload = root is not None and _enable_autoreload()
+    from_colab = _load_colab_secrets()
 
     from cbnb.config import load_settings
 
@@ -140,4 +189,6 @@ def bootstrap(extras: list[str] | None = None, quiet: bool = False) -> Settings:
     if not quiet:
         where = "Colab" if in_colab() else "local" + (", autoreload on" if autoreload else "")
         print(f"cbnb ready ({where}). {cfg.summary()}")
+        if from_colab:
+            print(f"Loaded from Colab secrets: {', '.join(from_colab)}")
     return cfg

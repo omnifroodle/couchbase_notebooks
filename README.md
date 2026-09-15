@@ -26,7 +26,7 @@ Groq, Anthropic's compatibility endpoint, or Ollama on your own machine.
 *Locally:*
 
 ```bash
-git clone <this repo> && cd couchbase-notebooks
+git clone https://github.com/omnifroodle/couchbase_notebooks.git && cd couchbase_notebooks
 make setup             # .venv + editable install + .env from the example
 ```
 

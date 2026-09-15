@@ -52,7 +52,10 @@ Locally, `cp .env.example .env` and fill it in.
 
 On Colab, open the **key icon** in the left sidebar and add secrets named
 `CB_CONNECTION_STRING`, `CB_USERNAME`, `CB_PASSWORD`, `CB_BUCKET`, and your
-model provider's API key. Grant the notebook access to each one.
+model provider's API key. Grant the notebook access to each one. Any other name from
+[`.env.example`](../.env.example) works the same way — for example `CBNB_LLM_PROVIDER` and
+`CBNB_LLM_MODEL` to use something other than OpenAI. The setup cell lists which names it
+loaded.
 
 If you skip both, the notebooks prompt for what they need — passwords via
 `getpass`, so nothing sensitive lands in a stored output.
