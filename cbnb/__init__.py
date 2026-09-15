@@ -21,6 +21,7 @@ __version__ = "0.1.0"
 _LAZY = {
     "Settings": "cbnb.config",
     "load_settings": "cbnb.config",
+    "update_setting": "cbnb.config",
     "Embedder": "cbnb.embeddings",
     "LLM": "cbnb.llm",
     "PROVIDERS": "cbnb.llm",

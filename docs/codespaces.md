@@ -57,3 +57,17 @@ Reopening the same codespace later (the badge's *Resume* option) skips all of th
 | Repo available as | your checkout | a full checkout | cloned by the setup cell |
 | `make run` / `make ship` | yes | yes | no |
 | Cost | your machine | your GitHub quota | Google's free tier |
+
+## A key or password was rejected
+
+It happens: a value in the wrong box on the create page, a typo, a key you've since
+regenerated. The error names the setting, where its value came from, and whether it looks
+like it belongs to a different provider. Two ways out:
+
+- **Keep going right now.** In a notebook cell, run
+  `cbnb.update_setting("NANOGPT_API_KEY")` (or whichever name the error gave). It asks for
+  the value with a masked prompt, so the key never lands in the notebook. Then re-run the
+  cell that uses it — for an API key, the cell that creates `LLM()`.
+- **Fix it for good.** Edit the secret at
+  [github.com/settings/codespaces](https://github.com/settings/codespaces), then stop and
+  restart the codespace. Running codespaces don't see secret changes.

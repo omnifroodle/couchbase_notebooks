@@ -36,6 +36,12 @@ EXTRA_REQUIREMENTS: dict[str, list[tuple[str, str]]] = {
 }
 
 
+#: Where each setting's value came from, by name -- "the .env file", "a Colab
+#: secret", "a prompt in this session". Used to explain a rejected credential. Names only;
+#: values are never recorded here.
+SETTING_SOURCES: dict[str, str] = {}
+
+
 def in_colab() -> bool:
     return "google.colab" in sys.modules or "COLAB_RELEASE_TAG" in os.environ
 
@@ -96,6 +102,7 @@ def _load_colab_secrets() -> list[str]:
             continue
         if value:
             os.environ[name] = value
+            SETTING_SOURCES[name] = "a Colab secret"
             loaded.append(name)
     return loaded
 

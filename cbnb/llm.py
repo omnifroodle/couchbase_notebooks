@@ -126,6 +126,19 @@ PROVIDERS: dict[str, Provider] = {
 
 _MODES = ["json_schema", "json_object", "prompt"]
 
+#: Well-known key prefixes, to spot a key pasted under the wrong provider.
+_KEY_PREFIXES = [
+    ("sk-ant-", "Anthropic"),
+    ("sk-or-", "OpenRouter"),
+    ("gsk_", "Groq"),
+    ("sk-proj-", "OpenAI"),
+    ("sk-svcacct-", "OpenAI"),
+]
+
+
+class LLMAuthenticationError(RuntimeError):
+    """The provider rejected the API key. Retrying will not help; fixing the key will."""
+
 
 @dataclass
 class Usage:
@@ -253,6 +266,7 @@ class LLM:
 
         self.base_url = base_url or os.environ.get("CBNB_LLM_BASE_URL") or self.provider.base_url
         key = api_key
+        self._key_from_argument = api_key is not None
         if key is None and self.provider.key_env:
             key = os.environ.get(self.provider.key_env)
         if not key and self.provider.key_required:
@@ -348,7 +362,8 @@ class LLM:
                 return hit
 
         started = time.perf_counter()
-        response = self.client.chat.completions.create(
+        response = self._api(
+            self.client.chat.completions.create,
             model=self.model,
             messages=messages,  # type: ignore[arg-type]
             temperature=payload["temperature"],
@@ -359,6 +374,45 @@ class LLM:
         text = response.choices[0].message.content or ""
         self._cache_put(path, payload, text)
         return text
+
+    def _api(self, method: Callable[..., Any], **kwargs: Any) -> Any:
+        """Call the provider, turning a rejected key into instructions."""
+        from openai import AuthenticationError, PermissionDeniedError
+
+        try:
+            return method(**kwargs)
+        except (AuthenticationError, PermissionDeniedError) as exc:
+            raise LLMAuthenticationError(self._auth_help(exc)) from exc
+
+    def _auth_help(self, exc: Exception) -> str:
+        from cbnb.config import how_to_fix_permanently, setting_source
+
+        status = getattr(exc, "status_code", "?")
+        label, name = self.provider.label, self.provider.key_env or "CBNB_LLM_API_KEY"
+        if status == 403:
+            lines = [f"{label} refused the request (HTTP 403): the key is not allowed to use "
+                     f"model {self.model!r}, or the account is out of credit."]
+        else:
+            lines = [f"{label} rejected the API key (HTTP {status})."]
+
+        if self._key_from_argument:
+            lines.append("The key was passed directly as LLM(api_key=...).")
+        else:
+            lines.append(f"The key came from {name}, via {setting_source(name)}.")
+            looks_like = next((p for prefix, p in _KEY_PREFIXES if self.api_key.startswith(prefix)), None)
+            if looks_like and looks_like not in label:
+                lines.append(f"That value looks like {'an' if looks_like[0] in 'AO' else 'a'} "
+                             f"{looks_like} key, not a {label} key.")
+            others = sorted({p.key_env for p in PROVIDERS.values()
+                             if p.key_env and p.key_env != name and os.environ.get(p.key_env)})
+            if others:
+                lines.append(f"Other provider keys set here: {', '.join(others)}. If your {label} "
+                             f"key went into one of those, that's the problem.")
+            lines.append("")
+            lines.append(f"Fix it for this session:  cbnb.update_setting({name!r})")
+            lines.append("  then re-run the cell that creates the LLM.")
+            lines.append(f"Fix it for good: {how_to_fix_permanently(name)}.")
+        return "\n".join(lines)
 
     def _record(self, response: Any, elapsed: float) -> None:
         self.usage.calls += 1
@@ -500,7 +554,8 @@ class LLM:
         messages.append({"role": "user", "content": user})
 
         started = time.perf_counter()
-        response = self.client.chat.completions.create(
+        response = self._api(
+            self.client.chat.completions.create,
             model=self.model,
             messages=messages,  # type: ignore[arg-type]
             temperature=temperature,
@@ -537,6 +592,13 @@ class LLM:
                 index = futures[future]
                 try:
                     results[index] = future.result()
+                except LLMAuthenticationError:
+                    # Every other item would fail the same way; don't wait for them.
+                    for pending in futures:
+                        pending.cancel()
+                    if progress:
+                        print()
+                    raise
                 except Exception as exc:  # noqa: BLE001 - collected and re-raised below
                     errors[index] = exc
                 done += 1
@@ -564,5 +626,5 @@ class LLM:
                 f"{self.provider.label} has no default embedding model; pass model=..."
             )
         batch = list(texts)
-        response = self.client.embeddings.create(model=model, input=batch)
+        response = self._api(self.client.embeddings.create, model=model, input=batch)
         return [item.embedding for item in response.data]

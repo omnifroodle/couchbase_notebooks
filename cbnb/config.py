@@ -18,7 +18,7 @@ import os
 from dataclasses import dataclass, field
 from getpass import getpass
 
-from cbnb.bootstrap import in_colab, repo_root
+from cbnb.bootstrap import SETTING_SOURCES, in_codespaces, in_colab, repo_root
 
 #: Where a value came from, for the "what am I connected to" summary.
 _ENV_FILE_LOADED = False
@@ -36,10 +36,14 @@ def _load_dotenv_once() -> None:
     if not env_path.exists():
         return
     try:
-        from dotenv import load_dotenv
+        from dotenv import dotenv_values, load_dotenv
     except ImportError:
         return
+    already_set = {name for name in dotenv_values(env_path) if os.environ.get(name)}
     load_dotenv(env_path)
+    for name in dotenv_values(env_path):
+        if name not in already_set and os.environ.get(name):
+            SETTING_SOURCES[name] = "the .env file"
 
 
 def _colab_secret(name: str) -> str | None:
@@ -64,7 +68,11 @@ def get(
 ) -> str:
     """Fetch one setting, asking the user only as a last resort."""
     _load_dotenv_once()
-    value = os.environ.get(name) or _colab_secret(name)
+    value = os.environ.get(name)
+    if not value:
+        value = _colab_secret(name)
+        if value:
+            SETTING_SOURCES[name] = "a Colab secret"
     if not value and default is not None:
         value = default
     if not value and required:
@@ -74,10 +82,60 @@ def get(
             raise RuntimeError(f"{name} is not set. Add it to .env ({label}).")
         value = getpass(f"{label}: ") if secret else input(f"{label}: ")
         value = value.strip()
+        SETTING_SOURCES[name] = "a prompt in this session"
     if value:
         # Cache it so re-running a cell does not re-prompt.
         os.environ[name] = value
     return value or ""
+
+
+_SECRET_SUFFIXES = ("PASSWORD", "API_KEY", "SECRET", "TOKEN")
+
+
+def setting_source(name: str) -> str:
+    """Where a setting's current value came from, in words. Never the value."""
+    if name in SETTING_SOURCES and os.environ.get(name):
+        return SETTING_SOURCES[name]
+    if os.environ.get(name):
+        return "a Codespaces secret" if in_codespaces() else "an environment variable"
+    return "nowhere (it is not set)"
+
+
+def how_to_fix_permanently(name: str) -> str:
+    """Instructions for correcting a setting at its source, for this environment."""
+    source = setting_source(name)
+    if in_codespaces():
+        return (f"update the {name} secret at https://github.com/settings/codespaces, "
+                "then stop and restart the codespace (running codespaces don't see changes)")
+    if in_colab():
+        return (f"update {name} in the Colab secrets panel (key icon), then "
+                "Runtime -> Restart session and run from the top")
+    if source == "the .env file":
+        return f"fix {name} in the repo's .env file, then restart the kernel"
+    return (f"put the right value for {name} in the repo's .env file (or wherever you export "
+            f"it), then restart the kernel")
+
+
+def update_setting(name: str) -> None:
+    """Re-enter a setting for the rest of this session, e.g. after a rejected API key.
+
+    Secrets (names ending in PASSWORD, API_KEY, SECRET or TOKEN) are read with a
+    masked prompt, so the value never lands in the notebook. Anything that already
+    read the old value -- an ``LLM()`` or a cluster connection -- needs to be
+    created again afterwards.
+    """
+    if os.environ.get("CBNB_NONINTERACTIVE"):
+        raise RuntimeError(f"Cannot prompt for {name} in a headless run; set it in .env instead.")
+    secret = name.upper().endswith(_SECRET_SUFFIXES)
+    value = (getpass if secret else input)(f"New value for {name}: ").strip()
+    if not value:
+        print(f"Nothing entered; {name} is unchanged.")
+        return
+    os.environ[name] = value
+    SETTING_SOURCES[name] = "a prompt in this session"
+    print(f"{name} updated for this session. Re-run the cell that creates the object using it "
+          f"(for an API key, the cell with LLM()). To keep it, "
+          f"{how_to_fix_permanently(name)}.")
 
 
 def mask_host(connection_string: str) -> str:
