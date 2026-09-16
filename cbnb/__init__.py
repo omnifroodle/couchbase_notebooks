@@ -27,7 +27,12 @@ _LAZY = {
     "PROVIDERS": "cbnb.llm",
     "connect": "cbnb.couchbase_io",
     "datasets": "cbnb.datasets",
+    "readiness": "cbnb.readiness",
+    "inventory": "cbnb.inventory",
 }
+
+#: Names that resolve to the module itself rather than an attribute of it.
+_LAZY_MODULES = {"datasets", "readiness", "inventory"}
 
 __all__ = ["bootstrap", "in_colab", "repo_root", "__version__", *_LAZY]
 
@@ -35,7 +40,7 @@ __all__ = ["bootstrap", "in_colab", "repo_root", "__version__", *_LAZY]
 def __getattr__(name: str) -> Any:
     if name in _LAZY:
         module = importlib.import_module(_LAZY[name])
-        return module if name == "datasets" else getattr(module, name)
+        return module if name in _LAZY_MODULES else getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

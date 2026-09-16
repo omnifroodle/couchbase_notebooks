@@ -20,7 +20,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cbnb.nbstamp import verify  # noqa: E402 - needs ROOT on sys.path
+from cbnb.inventory import read_lab  # noqa: E402 - needs ROOT on sys.path
+from cbnb.nbstamp import verify  # noqa: E402
 
 SECRET_PATTERNS = [
     (re.compile(r"sk-[A-Za-z0-9_\-]{20,}"), "OpenAI-style API key"),
@@ -59,6 +60,13 @@ def local_secret_values() -> list[tuple[str, str]]:
             host = value.split("//")[-1].split("?")[0].split(",")[0].split(":")[0]
             values.append((key + " host", host))
     return values
+
+
+def _unknown_capabilities(names: tuple[str, ...]) -> list[str]:
+    """Names that no probe in cbnb.readiness knows how to check."""
+    from cbnb.readiness import CAPABILITIES
+
+    return [name for name in names if name not in CAPABILITIES]
 
 
 def check(path: Path) -> tuple[list[str], list[str]]:
@@ -104,6 +112,32 @@ def check(path: Path) -> tuple[list[str], list[str]]:
         problems.append(f"{message}. Run `make ship`, or `git restore {path.relative_to(ROOT)}`")
     elif status == "unshipped":
         warnings.append(message)
+
+    # Requirements are declared twice, for a reader and for the runtime. They
+    # are only useful to 00_check_setup while they agree.
+    lab = read_lab(path)
+    if lab is None:
+        problems.append("could not be read as a notebook")
+    elif lab.drifted:
+        problems.append(
+            f"declared requirements disagree: setup cell says "
+            f"{', '.join(lab.bootstrap_requires) or 'nothing'}, the **Requires.** line says "
+            f"{', '.join(lab.header_requires) or 'nothing'}"
+        )
+    elif not lab.declared_in:
+        warnings.append(
+            "declares no requirements — add bootstrap(requires=[...]) and a **Requires.** "
+            "line, or 00_check_setup cannot tell readers whether they can run it"
+        )
+    elif lab.declared_in == "header":
+        warnings.append(
+            "requirements are only in the **Requires.** line; add "
+            f"bootstrap(requires={list(lab.header_requires)}) at the next `make ship`"
+        )
+    else:
+        unknown = _unknown_capabilities(lab.requires)
+        if unknown:
+            problems.append(f"unknown capability {unknown[0]!r} in bootstrap(requires=...)")
 
     if "OWNER/REPO" in path.read_text():
         warnings.append(

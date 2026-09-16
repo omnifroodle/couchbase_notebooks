@@ -21,6 +21,22 @@ able to open exactly one file and get a result.
 notebook. It finds `cbnb` in a local checkout, `pip install`s from GitHub on
 Colab, then installs missing dependencies and loads credentials.
 
+**Declare what the notebook needs, in both places.** The setup call is what
+runs; the header line is what a reader sees on GitHub. `00_check_setup` reads
+these to tell people which notebooks they can run, so a notebook that declares
+nothing gets reported as runnable when it is not.
+
+```python
+settings = cbnb.bootstrap(requires=["couchbase", "llm", "local-embeddings"])
+```
+
+```markdown
+**Requires.** couchbase · llm · local-embeddings
+```
+
+Names come from `cbnb.readiness.CAPABILITIES`. `check_notebooks.py` fails if the
+two disagree. `extras=` is separate, and still means "just install this".
+
 **Never hardcode credentials, and never leave them in an output.** Read
 everything through `cbnb.config`. It resolves env → `.env` → Colab secrets →
 `getpass` prompt.

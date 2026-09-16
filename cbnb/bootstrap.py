@@ -166,26 +166,50 @@ def _enable_autoreload() -> bool:
     return True
 
 
-def bootstrap(extras: list[str] | None = None, quiet: bool = False) -> Settings:  # noqa: F821
+def bootstrap(
+    extras: list[str] | None = None,
+    quiet: bool = False,
+    requires: list[str] | None = None,
+) -> Settings:  # noqa: F821
     """Install what is missing, load credentials, and return the settings.
 
     Safe to call repeatedly -- it only installs packages that fail to import.
 
     Args:
-        extras: names from :data:`EXTRA_REQUIREMENTS`, e.g. ``["local-embeddings"]``.
+        extras: names from :data:`EXTRA_REQUIREMENTS`, e.g. ``["plots"]``. Pure
+            installs, with nothing to verify at runtime.
         quiet: suppress the summary line.
+        requires: capabilities this notebook needs, from
+            :data:`cbnb.readiness.CAPABILITIES` -- e.g.
+            ``["couchbase", "llm", "local-embeddings"]``. Anything they imply is
+            installed, then checked, so a notebook stops here with an actionable
+            message instead of failing ten cells later. Checks are shallow: they
+            confirm the setting is present, not that the credential still works.
+            ``00_check_setup`` does the live version.
 
     Returns:
         A populated :class:`cbnb.config.Settings`.
+
+    Raises:
+        NotReady: a required capability is unavailable here.
     """
     # First: libraries read these settings when they are imported.
     _quiet_model_downloads()
 
+    requires = list(requires or [])
+    from cbnb.readiness import CAPABILITIES, extras_for
+
+    unknown = [name for name in requires if name not in CAPABILITIES]
+    if unknown:
+        raise KeyError(
+            f"Unknown capability {unknown[0]!r}. Known: {', '.join(sorted(CAPABILITIES))}"
+        )
+
     requirements = list(CORE_REQUIREMENTS)
-    for extra in extras or []:
+    for extra in [*extras_for(requires), *(extras or [])]:
         if extra not in EXTRA_REQUIREMENTS:
             raise KeyError(f"Unknown extra {extra!r}. Known: {sorted(EXTRA_REQUIREMENTS)}")
-        requirements += EXTRA_REQUIREMENTS[extra]
+        requirements += [r for r in EXTRA_REQUIREMENTS[extra] if r not in requirements]
 
     missing = _missing(requirements)
     if missing:
@@ -201,6 +225,13 @@ def bootstrap(extras: list[str] | None = None, quiet: bool = False) -> Settings:
     from cbnb.config import load_settings
 
     cfg = load_settings()
+
+    # After Colab secrets, or this reports settings that are about to arrive.
+    if requires:
+        from cbnb.readiness import require
+
+        require(requires)
+
     if not quiet:
         if in_colab():
             where = "Colab"
@@ -210,4 +241,6 @@ def bootstrap(extras: list[str] | None = None, quiet: bool = False) -> Settings:
         print(f"cbnb ready ({where}). {cfg.summary()}")
         if from_colab:
             print(f"Loaded from Colab secrets: {', '.join(from_colab)}")
+        if requires:
+            print(f"Ready for: {', '.join(requires)}")
     return cfg

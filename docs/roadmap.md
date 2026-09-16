@@ -59,7 +59,7 @@ so now is the cheapest this will ever be. Do it as part of building 02, not befo
 
 ## Next up
 
-**`00_check_setup` — what can I run right now?**
+**`00_check_setup` — what can I run right now?** *Built 2026-09-16.*
 Not a demo. A reader arriving from Codespaces or Colab currently discovers whether their
 setup works by running a real notebook and seeing how far it gets, which is a bad first five
 minutes and the most likely place to lose someone. This notebook resolves credentials,

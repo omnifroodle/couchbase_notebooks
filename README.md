@@ -11,6 +11,7 @@ GitHub with their outputs stored, and they run unmodified on Colab.
 
 | | Notebook | What it shows |
 | --- | --- | --- |
+| 00 | [Can I run these?](notebooks/00_check_setup.ipynb) | Start here. Checks your credentials for real — a live connection and a live model call — then tells you which notebook below you can run right now, and what to fix if you can't. |
 | 01 | [Don't classify. Hallucinate.](notebooks/01_hypothetical_classification.ipynb) | Classify into a 1,623-category taxonomy that never enters the prompt. A cheap model invents a plausible category path; Couchbase Vector Search snaps it to a real one. Measured against a no-LLM baseline. |
 
 What's coming, and how these are organised: [`docs/roadmap.md`](docs/roadmap.md).
@@ -50,6 +51,10 @@ Nothing is hardcoded and nothing is required up front: every setting resolves fr
 environment (where Codespaces secrets land), then `.env`, then Colab secrets, then an
 interactive prompt.
 
+**Not sure your setup works?** Run
+[`notebooks/00_check_setup.ipynb`](notebooks/00_check_setup.ipynb) first. It takes a minute
+and tells you which notebooks you can run before you invest in one.
+
 ## What's in `cbnb/`
 
 The shared helper package, so the notebooks show the technique and not the plumbing.
@@ -62,6 +67,8 @@ The shared helper package, so the notebooks show the technique and not the plumb
 | `llm.py` | One client for any OpenAI-compatible endpoint. Structured output that degrades gracefully, a disk cache, token accounting. |
 | `embeddings.py` | Local sentence-transformers or an API endpoint. Always normalised. |
 | `datasets.py` | Openly-licensed datasets, with small samples committed so notebooks run instantly. |
+| `readiness.py` | What this environment can actually do. Live checks, and what to do when one fails. |
+| `inventory.py` | What each notebook asks for, read from the notebook files themselves. |
 
 ### The LLM client
 
