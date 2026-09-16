@@ -15,6 +15,7 @@ file (~86 MB) from GitHub instead.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,6 +56,17 @@ def _download(filename: str) -> Path:
     if target.exists():
         return target
     url = f"{WANDS_BASE_URL}/{filename}"
+    print(f"Downloading {url} -> {target} ...")
+    with urlopen(url) as response, open(target, "wb") as handle:  # noqa: S310 - fixed https URL
+        handle.write(response.read())
+    return target
+
+
+def _download_url(url: str, filename: str) -> Path:
+    """Cache any dataset file by URL. ``_download`` is the WANDS-specific form."""
+    target = cache_dir() / filename
+    if target.exists():
+        return target
     print(f"Downloading {url} -> {target} ...")
     with urlopen(url) as response, open(target, "wb") as handle:  # noqa: S310 - fixed https URL
         handle.write(response.read())
@@ -276,3 +288,190 @@ def load_wands_eval_set() -> EvalSet:
         queries, products, labels = (pd.read_csv(path, sep="\t") for path in committed)
         return EvalSet(queries=queries, products=products, labels=labels)
     return _build_wands_eval_set()
+
+
+# --- CUAD: contracts, clause questions, and character-level answer spans ----
+#
+# The Contract Understanding Atticus Dataset (CC BY 4.0, The Atticus Project):
+# 510 commercial contracts filed with the SEC, annotated by lawyers for 41
+# categories of clause that matter in a corporate transaction.
+#
+# It is here because it answers two questions at once. It is a retrieval
+# benchmark -- each annotation is a character span, so "did we retrieve the
+# right passage" is exactly measurable. And the categories are a ready-made
+# extraction schema: parties, dates, governing law, renewal terms. The same
+# documents can carry a RAG notebook and a structured-extraction one.
+#
+# The property that makes it honest: **68% of the annotations are absent**. Most
+# contracts do not have a source-code-escrow clause, and the correct answer is
+# "not in this document". A system that always produces a confident answer is
+# wrong most of the time, and no hand-picked demo query will show you that.
+#
+# Citation: Hendrycks, Burns, Chen, Ball. "CUAD: An Expert-Annotated NLP Dataset
+# for Legal Contract Review." NeurIPS 2021. https://www.atticusprojectai.org/cuad
+# The annotations are CC BY 4.0; the underlying contracts are SEC filings
+# obtained from EDGAR, whose licence status the CUAD authors do not warrant.
+
+CUAD_URL = "https://huggingface.co/datasets/theatticusproject/cuad/resolve/main/CUAD_v1/CUAD_v1.json"
+
+_CUAD_QUESTION = re.compile(
+    r'related to "(?P<category>.+?)" that should be reviewed by a lawyer\. '
+    r'Details: (?P<details>.+)',
+    re.S,
+)
+
+#: A few categories are described as noun phrases rather than questions; the
+#: rest of CUAD's "Details" text already reads as one. Asking a real question
+#: matters here, because the notebook feeds these to a retriever and a model.
+_CUAD_REPHRASED = {
+    "Document Name": "What is the name or title of this contract?",
+    "Parties": "Who are the parties to this agreement?",
+    "Agreement Date": "What date was this contract signed?",
+    "Effective Date": "On what date does this agreement become effective?",
+}
+
+
+@dataclass
+class ContractSet:
+    """Contracts, clause questions, and where the answers actually are.
+
+    ``spans`` holds one row per annotated answer. A (contract, category) pair
+    with no row is a genuine absence -- the clause is not in that contract --
+    and those are the majority. :meth:`questions_with_absences` makes them
+    explicit, because a benchmark that only contains answerable questions
+    measures the easy half of the problem.
+    """
+
+    contracts: pd.DataFrame  # contract_id, title, contract_type, text
+    categories: pd.DataFrame  # category, question
+    spans: pd.DataFrame  # contract_id, category, start, end, text
+
+    def questions_with_absences(self) -> pd.DataFrame:
+        """Every (contract, category) pair, answerable or not."""
+        pairs = self.contracts[["contract_id"]].merge(self.categories, how="cross")
+        present = self.spans.groupby(["contract_id", "category"]).size().rename("spans")
+        merged = pairs.merge(present, on=["contract_id", "category"], how="left")
+        merged["spans"] = merged["spans"].fillna(0).astype(int)
+        merged["answerable"] = merged.spans > 0
+        return merged
+
+    def summary(self) -> str:
+        pairs = self.questions_with_absences()
+        absent = (~pairs.answerable).mean()
+        return (f"{len(self.contracts)} contracts, {len(self.contracts.contract_type.unique())} types, "
+                f"{len(self.categories)} clause categories, {len(self.spans):,} annotated spans; "
+                f"{absent:.0%} of questions have no answer in their contract")
+
+
+#: CUAD titles are filenames: company, filing date, exhibit number, then the
+#: kind of agreement -- "LIMEENERGYCO_09_09_1999-EX-10-DISTRIBUTOR AGREEMENT",
+#: "MetLife, Inc. - Remarketing Agreement". The type is the trailing
+#: human-readable part, which is worth recovering: it is a structured field
+#: extracted from nothing but a filename, and it filters retrieval later.
+_CUAD_TYPE = re.compile(
+    r"[_-]\s*([A-Za-z][A-Za-z0-9 ,&'/.\-]*?"
+    r"(?:AGREEMENT|CONTRACT|LICENSE|LICENCE|GUARANTY|AMENDMENT|LETTER|ADDENDUM))"
+    r"\s*\d*\s*$",
+    re.IGNORECASE,
+)
+#: Strips an exhibit number the greedy match above may have swallowed.
+_CUAD_EXHIBIT = re.compile(r"^EX[-.]?[\d.]*\s*-\s*", re.IGNORECASE)
+
+
+def _cuad_contract_type(title: str) -> str:
+    """The kind of agreement, from CUAD's filename-shaped titles."""
+    found = _CUAD_TYPE.search(title)
+    if not found:
+        return "OTHER"
+    name = _CUAD_EXHIBIT.sub("", found.group(1))
+    return re.sub(r"\s+", " ", name).strip().upper() or "OTHER"
+
+
+#: Contracts long enough to need retrieval, short enough to index quickly, and
+#: annotated richly enough to ask real questions of.
+_CUAD_MIN_CHARS, _CUAD_MAX_CHARS, _CUAD_MIN_CLAUSES = 12_000, 45_000, 12
+_CUAD_SAMPLE_SIZE = 20
+_CUAD_SEED = 1729
+
+
+def _build_cuad(n_contracts: int = _CUAD_SAMPLE_SIZE) -> ContractSet:
+    """Rebuild the committed contract sample from the 40 MB CUAD download."""
+    import json
+
+    import numpy as np
+
+    raw = json.loads(_download_url(CUAD_URL, "CUAD_v1.json").read_text())["data"]
+
+    categories: dict[str, str] = {}
+    for qa in raw[0]["paragraphs"][0]["qas"]:
+        found = _CUAD_QUESTION.search(qa["question"])
+        if found:
+            name = found.group("category")
+            details = " ".join(found.group("details").split())
+            categories[name] = _CUAD_REPHRASED.get(name, details)
+
+    eligible = []
+    for index, entry in enumerate(raw):
+        para = entry["paragraphs"][0]
+        present = sum(1 for qa in para["qas"] if qa["answers"])
+        if (_CUAD_MIN_CHARS <= len(para["context"]) <= _CUAD_MAX_CHARS
+                and present >= _CUAD_MIN_CLAUSES):
+            eligible.append(index)
+
+    # At most two of any one agreement type, so the sample is not all
+    # distributor agreements; then a seeded draw for the rest.
+    by_type: dict[str, list[int]] = {}
+    for index in eligible:
+        by_type.setdefault(_cuad_contract_type(raw[index]["title"]), []).append(index)
+    spread = [i for indexes in by_type.values() for i in indexes[:2]]
+    rng = np.random.default_rng(_CUAD_SEED)
+    chosen = sorted(rng.choice(sorted(spread), size=min(n_contracts, len(spread)), replace=False))
+
+    contracts, spans = [], []
+    for contract_id, index in enumerate(chosen):
+        entry = raw[int(index)]
+        para = entry["paragraphs"][0]
+        contracts.append({
+            "contract_id": contract_id,
+            "title": entry["title"],
+            "contract_type": _cuad_contract_type(entry["title"]),
+            "text": para["context"],
+        })
+        for qa in para["qas"]:
+            found = _CUAD_QUESTION.search(qa["question"])
+            if not found:
+                continue
+            for answer in qa["answers"]:
+                spans.append({
+                    "contract_id": contract_id,
+                    "category": found.group("category"),
+                    "start": int(answer["answer_start"]),
+                    "end": int(answer["answer_start"]) + len(answer["text"]),
+                    "text": answer["text"],
+                })
+
+    return ContractSet(
+        contracts=pd.DataFrame(contracts),
+        categories=pd.DataFrame(
+            [{"category": k, "question": v} for k, v in categories.items()]
+        ),
+        spans=pd.DataFrame(spans).drop_duplicates().reset_index(drop=True),
+    )
+
+
+def load_cuad(full: bool = False) -> ContractSet:
+    """Contracts with lawyer-annotated clause spans.
+
+    Defaults to the sample committed under ``data/`` so a notebook runs before
+    anything downloads. ``full=True`` rebuilds from all 510 contracts (a 40 MB
+    download); expect a much longer indexing step.
+    """
+    names = ("cuad_contracts.jsonl", "cuad_categories.tsv", "cuad_spans.jsonl")
+    committed = [_committed(name) for name in names]
+    if not full and all(path is not None for path in committed):
+        return ContractSet(
+            contracts=pd.read_json(committed[0], lines=True),
+            categories=pd.read_csv(committed[1], sep="\t"),
+            spans=pd.read_json(committed[2], lines=True),
+        )
+    return _build_cuad(n_contracts=510 if full else _CUAD_SAMPLE_SIZE)

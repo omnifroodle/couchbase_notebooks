@@ -399,6 +399,48 @@ it does move to a work org, do it in the same pass as relocating notebook 01 int
 both change paths, both break shared links, so break them once. Also worth checking team
 norms about the history being authored under a personal email.
 
+## The corpus decision
+
+*Settled 2026-09-16.* `flows/` and `data-model/` use **CUAD** — the Contract Understanding
+Atticus Dataset, CC BY 4.0, 510 SEC-filed commercial contracts with lawyer-written
+annotations for 41 clause categories, each a character span.
+
+**Why not the obvious ones.** The canonical RAG benchmark is the TREC RAG track, built on MS
+MARCO — and MS MARCO is *non-commercial research only*, which rules it out. That blocker
+spreads: SciFact is CC BY-NC, NFCorpus and FiQA are non-commercial, and the HuggingFace BEIR
+mirrors tag them CC BY-SA 4.0 in contradiction of the upstream terms, so the tag cannot be
+trusted. RAGBench looks clean at CC BY 4.0 but is assembled from twelve datasets including
+`msmarco` and `cuad`, and an aggregate tag cannot launder a non-commercial component.
+
+HotpotQA (CC BY-SA 4.0) and Natural Questions (CC BY-SA 3.0) are usable and were the
+runners-up. They lose on the second criterion below.
+
+**What CUAD buys that Wikipedia QA does not.** The 41 clause categories are a ready-made
+extraction schema — parties, agreement date, effective date, expiration date, governing law,
+renewal term. That makes the same documents serve `data-model/` (extract structure on the
+write path) and then `retrieval/` (filter on the extracted fields *and* vector search *and*
+full text, in one query). One corpus, four tracks, where the later notebooks are more
+interesting because the earlier ones enriched the data — which is the argument for a document
+database, demonstrated rather than asserted.
+
+**The property that makes it honest: 62% of the questions have no answer in their contract.**
+Most contracts have no source-code-escrow clause, and the correct response is "not in this
+document". A RAG system that always answers confidently is wrong most of the time on this
+distribution, and no hand-picked demo query will ever show that. That is the spine of
+`flows/01`.
+
+**Known caveats.** The annotations are CC BY 4.0; the underlying contracts are EDGAR filings
+whose licence status the CUAD authors explicitly do not warrant — worth an internal glance
+before this repo goes anywhere official. Queries are expert-written rather than natural search
+queries. And the domain is narrow: legal contracts are legible to an enterprise audience and
+duller than Wikipedia to everyone else.
+
+**On training-data contamination.** MS MARCO is in almost every embedding model's training
+mixture, and so are NQ and HotpotQA (GTE and BGE both train on all three), which undercuts
+BEIR's zero-shot framing. Contracts are not standard retrieval training data. This is worth
+one aside in a notebook and is *not* the reason for the choice — these notebooks teach
+approaches, they do not claim a recall breakthrough.
+
 ## Still open
 
 - **A recall figure is meaningless without its ceiling.** WANDS judges a median of 125
