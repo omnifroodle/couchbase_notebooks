@@ -31,6 +31,26 @@ search, and the interesting part is the flow, not the index.
 
 **Evaluation is not a track.** It runs through all four — see below.
 
+### Level, not a fifth track
+
+Some notebooks teach one mechanism; some assemble several into something that resembles a
+real system. That difference is a *level*, not a topic, so it is a label rather than a
+directory:
+
+- **primitive** — teaches one mechanism, in isolation, measured.
+- **capstone** — composes primitives into something end-to-end. Hybrid search is the small
+  version of this; "ingest unstructured, get structured + vectors" is the large one.
+
+A capstone lives in the track of its *outcome*, and the README marks the level. This is
+also the deep/shallow split: capstones are what a manager reads, because they look like a
+product; primitives are what a retrieval engineer reads, because they isolate a variable.
+
+**The rule that keeps this from becoming a junk drawer:** a capstone may only compose
+techniques that a primitive already teaches, and must link to them. If a capstone is the
+first place a technique appears, the primitive is missing — write that instead. Without
+this constraint everything is arguably a fusion of something, and the taxonomy dies inside
+a year.
+
 ### Moving notebook 01
 
 `01_hypothetical_classification` belongs in `enrich/`. Moving it costs us: the Colab and
@@ -38,6 +58,17 @@ Codespaces badges embed the path, and any link already shared breaks. The repo i
 so now is the cheapest this will ever be. Do it as part of building 02, not before.
 
 ## Next up
+
+**`00_check_setup` — what can I run right now?**
+Not a demo. A reader arriving from Codespaces or Colab currently discovers whether their
+setup works by running a real notebook and seeing how far it gets, which is a bad first five
+minutes and the most likely place to lose someone. This notebook resolves credentials,
+proves the connection, and then reports **every notebook in the repo with a verdict**: ready,
+or blocked and on what.
+
+See [Readiness](#readiness) for the mechanism — the important property is that the report is
+generated from what each notebook declares, so adding a notebook never means editing this
+one.
 
 **`retrieval/01` — Hybrid and filtered retrieval, measured.**
 WANDS ships 480 queries and 233k relevance judgements that we currently ignore. Compare
@@ -123,11 +154,101 @@ Layer 4 is where Couchbase's agent tracking is genuinely interesting as *infrast
 rather than as a feature demo — traces of what an agent did, queryable, aggregated over
 many runs. See the AIDP rule below for how to handle that.
 
+### Don't write the metrics
+
+For layer 1, use [`ir-measures`](https://ir-measur.es/), which wraps `pytrec_eval` — Python
+bindings to `trec_eval`, the reference implementation the IR literature reports against.
+
+Two reasons this beats hand-rolling. It removes the silently-wrong-NDCG risk, which would
+poison every claim in the repo. And "our numbers come from `trec_eval`" is a credibility
+argument with exactly the audience these notebooks are aimed at — a hand-rolled metric
+invites a discount that no amount of prose removes.
+
+Verified 2026-09-16, because the obvious worry is a hostile install: `ir-measures` 0.4.3 is
+pure Python and its only hard dependency is `pytrec-eval-terrier` 0.5.10, which ships binary
+wheels for macOS universal2, manylinux, musllinux and win_amd64 and needs only numpy and
+scipy — both already in the venv. No compiler, no Java. The dragons are all in optional
+extras nobody has to install (`gdeval` wants Perl; `trectools`, `ranx`, `cwl_eval` are
+extras). Smoke-tested in a throwaway venv: `nDCG@10`, `R@10`, `RR` and `AP` computed from
+plain qrels/run dicts.
+
+**Using a standard library makes the teaching easier, not harder.** Metric *implementation*
+is plumbing; metric *choice* is the technique, and it is the conversation worth having.
+Recall@10 and NDCG@10 disagree about which system is better, and the disagreement is the
+lesson: recall is what matters when a reranker runs next and only needs the right document
+somewhere in the pool; NDCG is what matters when a human reads the list top-down. Make that
+a **result** in `retrieval/01` rather than an aside — show two systems where the ranking
+flips depending on the metric, and the reader learns more than any explanation delivers.
+
+### Layers 2–4: defer
+
+[Unitxt](https://github.com/IBM/unitxt) (IBM, the one you were thinking of — Apache 2.0,
+actively developed, includes an LLM-as-judge catalog) and
+[Ragas](https://pypi.org/project/ragas/) are the serious options, and both want to own more
+of the pipeline than we should hand over yet. Ragas 0.4.3 alone pulls `datasets`,
+`instructor`, `tiktoken`, `typer`, `rich` and its own `openai` usage, which collides with
+`cbnb.llm`.
+
+Revisit when `flows/` exists and there is an actual judging need. Deciding now would be
+choosing a framework before having the problem.
+
 **Practical constraints worth designing around now:** LLM-as-judge is the usual answer for
 layers 2–4 and it is both expensive and non-deterministic, which fights the goal of
 committed outputs that reproduce. Prefer judgement sets and deterministic metrics where they
 exist; where a judge is unavoidable, cache aggressively (we already cache), pin the judge
 model, and state in the notebook that the number came from one specific run.
+
+## Readiness
+
+Every notebook declares what it needs. One library checks those declarations. Two things
+consume it, and neither needs editing when a notebook is added.
+
+**Declaration.** The bootstrap cell already exists in every notebook and is already copied
+verbatim; requirements ride along with it rather than introducing new ceremony:
+
+```python
+cbnb.bootstrap(requires=["couchbase", "llm", "embeddings-local"])
+```
+
+**Consumer one — the notebook itself.** `bootstrap()` checks the requirements it was given
+and fails immediately, with a specific message, instead of dying in cell 12 with a
+`KeyError`. This is the part that helps a reader who is actually running the thing.
+
+**Consumer two — `00_check_setup`.** Reads every notebook's declaration statically (`ast`
+over the bootstrap cell — never by executing them), probes the environment once, and prints
+the matrix. A new notebook appears in the report because it declared, not because anyone
+remembered to register it.
+
+**Capabilities are named, coarse, and few.** Starting set: `couchbase`, `llm`,
+`embeddings-local`, `embeddings-api`, `dataset-download`, `ram-8gb`. Resist making these
+fine-grained — the point is a reader-legible verdict, not a dependency solver.
+
+**Probes must be real.** `llm` means a live call succeeded, not that a key is present. The
+NanoGPT key that was silently rejected for a whole debugging session is the motivating case:
+a key-is-set check would have reported green.
+
+**Keeping the human and machine copies honest.** The notebook header's `Requires` line is
+for readers; the `bootstrap(requires=...)` call is what executes. `check_notebooks.py` should
+verify they agree, the way it already verifies the bootstrap cell and ship state.
+
+### Two modules, not one
+
+A library that notebooks import, which also knows about those notebooks, would be an
+uncomfortable coupling — not a true cycle, but the kind of thing that rots. Keep the two
+directions in separate modules that don't reference each other:
+
+| Module | Answers | Knows about |
+| --- | --- | --- |
+| `cbnb.readiness` | "What can this environment do?" | Capabilities. Nothing about notebooks. |
+| `cbnb.inventory` | "What does each notebook ask for?" | Notebook *files* on disk — read as data, never imported or executed. |
+
+Notebooks depend on `readiness` only. `inventory` depends on neither notebooks-as-code nor
+`readiness`. **`00_check_setup` is the only place the two meet**, and all it does is join two
+lists. Couplings belong at the top of the stack, where they're visible, not buried in a
+library that everything imports.
+
+This also keeps `cbnb.readiness` — which ships to every Colab reader — free of any knowledge
+of repo layout.
 
 ## Couchbase AI Data Plane
 
@@ -153,13 +274,17 @@ the free path. One such notebook is fine. Three means the rule has quietly died.
 To adopt as these get built. Once settled, the durable ones move into
 [`adding-a-notebook.md`](adding-a-notebook.md), which is the enforced list.
 
-**Fixed header on every notebook** — four lines, above everything else:
+**Fixed header on every notebook** — above everything else:
 
 ```markdown
 **Claim.** One sentence: what this notebook demonstrates.
 **Result.** The measured number, from the run stored in this file.
+**Requires.** couchbase · llm · embeddings-local
 **Read** ~N min · **Run** ~N min · **Cost** ~$N.NN
 ```
+
+`Requires` must match the notebook's `bootstrap(requires=[...])` call — see
+[Readiness](#readiness).
 
 **The README is a results table.** One row per notebook with its headline metric. That table
 is the entire experience for a reader who will never run anything, and it stays honest
@@ -183,8 +308,21 @@ parts until every notebook is six function calls and teaches nothing.
 > `cbnb` owns plumbing: connections, credentials, caching, progress, dataset loading.
 > If a reader would want to copy it into their own project, it stays visible in the notebook.
 
-Expected new modules: `cbnb.eval` (metrics, judgement sets, significance testing — notebook
-01's McNemar test belongs here), `cbnb.chunk`, and considerable growth in `cbnb.datasets`.
+Expected new modules: `cbnb.eval` (judgement-set loading and alignment, significance testing
+— notebook 01's McNemar test belongs here — and a thin pass-through to `ir-measures`, *not*
+hand-written metrics), `cbnb.readiness`, `cbnb.inventory`, `cbnb.chunk`, and considerable
+growth in `cbnb.datasets`.
+
+**One caveat specific to eval:** a black-box metric undermines you with precisely the
+retrieval audience these notebooks are for. Whatever lives in `cbnb.eval` carries the exact
+formula in its docstring, and the notebook states it in markdown next to the number. The code
+may be hidden; the definition may not. Same split for judges later — harness, caching and
+parsing in `cbnb`; the rubric text stays in the notebook, because the rubric *is* the
+technique.
+
+**Relevance mapping is never plumbing.** WANDS grades are Exact / Partial / Irrelevant, and
+how those become gains changes the numbers. That mapping is a judgement call and stays
+visible in the notebook.
 
 ## Warnings
 
@@ -224,12 +362,36 @@ reader. Keep default sample sizes small and make the full run opt-in.
 **Scope creep per notebook.** Every idea in the backlog wants to be three notebooks. A
 notebook that demonstrates two things demonstrates neither. When one splits, split it.
 
-## Open questions
+## Decided
 
-- Does `enrich/` or `data-model/` own structured extraction? They overlap badly.
-- Is there a "5-minute tour" notebook worth building — a sampler that runs three things fast
-  as top-of-funnel? It would help the shallow read, and it duplicates content.
-- How much of eval belongs in `cbnb.eval` versus visible in notebooks? Metrics are plumbing;
-  the choice of what to measure is the technique.
-- Does the repo move to a work GitHub org? Badges and `REPO_URL` in every notebook would
-  need updating — a `make` target for that would pay for itself.
+Settled 2026-09-16. Recorded so they don't get re-litigated.
+
+**Structured extraction is two notebooks, not one.** `enrich/` is about the model's output —
+prompt and schema design, failure modes, confidence gating. `data-model/` is about the
+document's shape — what one write produces and what it then enables. They share a corpus and
+loader, which halves the expensive part. `data-model/` goes first with deliberately dumb
+extraction; `enrich/` comes back and makes the fields good.
+
+**No 5-minute tour.** It solves a navigation problem that doesn't exist below roughly eight
+notebooks, and duplicates content that the README table and committed outputs already deliver
+to a skimmer. Revisit at eight. `00_check_setup` is what was actually missing.
+
+**Primitive vs. capstone is a label, not a directory.** See
+[Level, not a fifth track](#level-not-a-fifth-track).
+
+**Metrics come from `ir-measures`; judgement stays in the notebook.** See
+[Don't write the metrics](#dont-write-the-metrics). Layers 2–4 deferred until `flows/` exists.
+
+**`make retarget REPO=owner/name`.** Build it when the second notebook lands — two notebooks
+to prove it against, ~20 lines. The repo URL is already duplicated per notebook (badge plus
+`REPO_URL` in the setup cell), so this is worth having whether or not the repo ever moves. If
+it does move to a work org, do it in the same pass as relocating notebook 01 into `enrich/` —
+both change paths, both break shared links, so break them once. Also worth checking team
+norms about the history being authored under a personal email.
+
+## Still open
+
+- Which corpus serves `flows/` and `data-model/`? This is the gating decision for both
+  tracks, and the most expensive one to get wrong.
+- Does `agentc` merit a notebook at all, or a section inside the chat-with-memory one?
+  Unanswerable until its current API is actually read.
