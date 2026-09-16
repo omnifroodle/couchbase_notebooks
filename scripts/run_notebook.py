@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execute a notebook top to bottom, headless, the way a reader would.
 
-    python scripts/run_notebook.py notebooks/01_hypothetical_classification.ipynb
+    python scripts/run_notebook.py notebooks/enrich/01_hypothetical_classification.ipynb
     python scripts/run_notebook.py 01 --stop-before "from cbnb.llm import"
     python scripts/run_notebook.py 01 --inplace      # store outputs for GitHub
 
@@ -33,7 +33,7 @@ def resolve_notebook(arg: str) -> Path:
     path = Path(arg)
     if path.exists():
         return path.resolve()
-    matches = sorted((ROOT / "notebooks").glob(f"{arg}*.ipynb"))
+    matches = sorted(ROOT.glob(f"notebooks/**/{arg}*.ipynb"))
     if len(matches) == 1:
         return matches[0]
     if not matches:

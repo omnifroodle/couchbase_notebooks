@@ -149,7 +149,10 @@ def check(path: Path) -> tuple[list[str], list[str]]:
 
 
 def main(argv: list[str]) -> int:
-    paths = [Path(a).resolve() for a in argv[1:]] or sorted((ROOT / "notebooks").glob("*.ipynb"))
+    paths = [Path(a).resolve() for a in argv[1:]] or [
+        p for p in sorted(ROOT.glob("notebooks/**/*.ipynb"))
+        if ".ipynb_checkpoints" not in p.parts
+    ]
     if not paths:
         print("No notebooks found.")
         return 0

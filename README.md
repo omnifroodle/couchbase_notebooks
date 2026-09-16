@@ -9,12 +9,16 @@ GitHub with their outputs stored, and they run unmodified on Colab.
 
 ## Notebooks
 
-| | Notebook | What it shows |
-| --- | --- | --- |
-| 00 | [Can I run these?](notebooks/00_check_setup.ipynb) | Start here. Checks your credentials for real — a live connection and a live model call — then tells you which notebook below you can run right now, and what to fix if you can't. |
-| 01 | [Don't classify. Hallucinate.](notebooks/01_hypothetical_classification.ipynb) | Classify into a 1,623-category taxonomy that never enters the prompt. A cheap model invents a plausible category path; Couchbase Vector Search snaps it to a real one. Measured against a no-LLM baseline. |
+| Notebook | Track | What it shows | Result |
+| --- | --- | --- | --- |
+| [Can I run these?](notebooks/00_check_setup.ipynb) | — | **Start here.** Checks your credentials for real — a live connection and a live model call — then tells you which notebook below you can run right now, and what to fix if you can't. | — |
+| [Don't classify. Hallucinate.](notebooks/enrich/01_hypothetical_classification.ipynb) | enrich | Classify into a 1,623-category taxonomy that never enters the prompt. A cheap model invents a plausible category path; Couchbase Vector Search snaps it to a real one. | 48.7% → 71.3% department accuracy over a no-LLM baseline, n=150 |
 
-What's coming, and how these are organised: [`docs/roadmap.md`](docs/roadmap.md).
+Notebooks are grouped by track — **retrieval** (recall mechanics), **flows** (RAG, chat,
+agents), **enrich** (AI on the write path), **data-model** (Couchbase-specific modelling).
+Numbers restart inside a track; this table carries the reading order.
+
+What's coming: [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Getting started
 

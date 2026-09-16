@@ -51,11 +51,21 @@ first place a technique appears, the primitive is missing — write that instead
 this constraint everything is arguably a fusion of something, and the taxonomy dies inside
 a year.
 
-### Moving notebook 01
+### Where 00 lives
 
-`01_hypothetical_classification` belongs in `enrich/`. Moving it costs us: the Colab and
-Codespaces badges embed the path, and any link already shared breaks. The repo is days old,
-so now is the cheapest this will ever be. Do it as part of building 02, not before.
+`00_check_setup` stays at `notebooks/` top level, unfiled. It belongs to no track because it
+is about the reader's machine rather than any technique, and it is the one notebook the
+README tells everyone to open first.
+
+Track directories are created when their first notebook lands, not in advance — git cannot
+carry an empty directory, and a tree of placeholder files is worse than no tree.
+
+*Done 2026-09-16:* notebook 01 moved to `enrich/`. Only markdown changed (the Colab badge
+path and a `../` link that became `../../`), so the ship stamp survived and no re-run was
+needed. Two globs that searched `notebooks/*.ipynb` rather than `notebooks/**/*.ipynb` would
+have silently stopped finding anything — `check_notebooks.py` and `run_notebook.py`. Worth
+remembering for the next structural change: the failure mode is a checker that passes
+because it checked nothing.
 
 ## Next up
 
@@ -114,7 +124,7 @@ Ordered roughly by value within each track. Nothing here is scheduled.
 
 | Idea | Note |
 | --- | --- |
-| Hypothetical classification | Shipped (currently `notebooks/01_...`). |
+| Hypothetical classification | Shipped. |
 | Structured extraction from unstructured text | Overlaps `data-model/`; decide which one owns it. |
 | Language normalisation | Units, sizes, colours, brand variants — unglamorous and extremely real. |
 | Translation / multilingual retrieval | **Blocked on a dataset with a usable licence.** See warnings. |

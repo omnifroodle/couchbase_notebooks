@@ -33,7 +33,7 @@ run-to:
 # Interactive exploration on a throwaway copy. Keeps an existing scratch copy
 # (it may have work in it) unless FRESH=1.
 scratch:
-	@src=$$(ls notebooks/$(NB)*.ipynb | head -1); dst=build/scratch/$$(basename $$src); \
+	@src=$$(find notebooks -name "$(NB)*.ipynb" | sort | head -1); dst=build/scratch/$$(basename $$src); \
 	mkdir -p build/scratch; \
 	if [ -f "$$dst" ] && [ -z "$(FRESH)" ]; then echo "Reusing $$dst (FRESH=1 to recopy)"; \
 	else cp "$$src" "$$dst" && echo "Copied $$src -> $$dst"; fi; \

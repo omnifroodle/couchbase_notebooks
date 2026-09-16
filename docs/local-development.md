@@ -22,7 +22,7 @@ the real file.
 | --- | --- | --- |
 | Check it runs top to bottom | `make run NB=01` | No — writes `build/` |
 | Poke at it interactively | `make scratch NB=01` | No — a copy in `build/scratch/` |
-| Change the notebook | open `notebooks/01_….ipynb` on purpose | Yes |
+| Change the notebook | open `notebooks/<track>/NN_….ipynb` on purpose | Yes |
 | Publish outputs for GitHub | `make ship NB=01` | Yes — outputs + stamp |
 
 ### Test: `make run`
@@ -117,7 +117,7 @@ Delete `.git/hooks/pre-commit` to remove it, or `git commit --no-verify` to skip
 ### Getting back to a good state
 
 ```bash
-git restore notebooks/01_hypothetical_classification.ipynb   # discard all uncommitted changes
+git restore notebooks/enrich/01_hypothetical_classification.ipynb   # discard all uncommitted changes
 git diff --stat                                                # see what else moved
 ```
 

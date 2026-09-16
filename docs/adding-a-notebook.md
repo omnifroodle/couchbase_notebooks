@@ -6,7 +6,8 @@ and conventions still being settled, see [`roadmap.md`](roadmap.md).
 ## Layout
 
 ```
-notebooks/NN_short_name.ipynb   the notebook
+notebooks/<track>/NN_name.ipynb the notebook — track is retrieval, flows,
+                                enrich or data-model; see docs/roadmap.md
 cbnb/                           shared helpers — connection, indexes, LLM, embeddings
 data/                           small, openly-licensed data committed to the repo
 docs/                           setup and reference
