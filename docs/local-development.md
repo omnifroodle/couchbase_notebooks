@@ -64,6 +64,30 @@ GitHub renders them, strips editor metadata, and **stamps** the notebook with a 
 cell sources. Then it runs the checks. If any cell fails, the notebook is not modified — the
 partial run goes to `build/`.
 
+### After a re-ship: `make review NB=01`
+
+The thing a re-ship breaks that nothing else catches. Prose naming specifics from the run —
+the lowest-scoring row, a product that resolved wrongly, the shape of the failures — quietly
+stops being true when those move. The notebook still executes; the checks still pass.
+
+`make review` hands a model the committed prose and the committed outputs and asks which
+statements the outputs no longer support:
+
+```
+cell 17 [contradicted] an over-the-door towel *rack* resolves to *Bath Towels*, and it has
+                       the lowest score in the table
+    In the cell 16 table the towel rack resolves to 'Countertop Bath Accessories', and its
+    score (0.762705) is not the lowest — the fire pit table's 0.759138 is.
+```
+
+**Advisory, and deliberately toothless.** It never edits a notebook, never appears to a
+reader, is not part of `make check`, and cannot fail a commit or CI. It skips cleanly when
+no model is configured. A model's opinion is worth a minute of your attention and nothing
+more — verify each finding against the outputs before editing.
+
+Set `CBNB_REVIEW_MODEL` to judge with something better than the model a notebook is
+demonstrating.
+
 ## Guard rails
 
 `scripts/check_notebooks.py` (run by `make check`, CI, and the git hook) fails a notebook

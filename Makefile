@@ -2,7 +2,7 @@
 PY := .venv/bin/python
 NB ?= 01
 
-.PHONY: help setup lab run run-to scratch ship check hooks
+.PHONY: help setup lab run run-to scratch ship check review hooks
 
 help:
 	@echo "make setup            create .venv and install everything"
@@ -12,6 +12,7 @@ help:
 	@echo "make scratch NB=01    copy a notebook to build/scratch/ to explore without editing it"
 	@echo "make ship NB=01       execute fresh (no LLM cache), store outputs in the notebook, run checks"
 	@echo "make check            lint + notebook checks"
+	@echo "make review NB=01     ask a model which claims the stored outputs no longer support"
 	@echo "make hooks            run the notebook checks before every git commit"
 
 setup:
@@ -41,6 +42,11 @@ scratch:
 ship:
 	$(PY) scripts/run_notebook.py $(NB) --inplace --no-cache
 	$(PY) scripts/check_notebooks.py
+
+# Advisory, and not part of `check` on purpose: a model's opinion should never
+# gate a commit, and this needs an API key that `check` does not.
+review:
+	$(PY) scripts/review_notebook.py $(NB)
 
 check:
 	.venv/bin/ruff check cbnb scripts

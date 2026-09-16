@@ -54,6 +54,11 @@ without running them. Consequences:
 The ship stamp hashes **code cells only**, so prose can be fixed without a re-run. Editing a
 code cell means re-shipping, which means a working cluster and a working API key.
 
+**A re-ship invalidates prose, and nothing enforces that.** Statements naming specifics from
+the run — the lowest-scoring row, a particular product, the shape of the failures — go stale
+while every check still passes. After re-shipping, run `make review NB=NN`: it asks a model
+which claims the new outputs no longer support. Advisory only; verify before editing.
+
 ### Unless the output isn't about the technique
 
 Commit outputs when **the output is the argument** — a measurement, a ranking, a model's
