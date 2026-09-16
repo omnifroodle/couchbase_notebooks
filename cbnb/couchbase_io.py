@@ -447,6 +447,30 @@ def vector_search(
     return [Hit(id=row.id, score=row.score, fields=row.fields or {}) for row in result.rows()]
 
 
+def text_search(
+    cluster,
+    *,
+    bucket_name: str,
+    scope_name: str,
+    index_name: str,
+    text_query: Any,
+    k: int = 5,
+    fields: Sequence[str] = ("*",),
+) -> list[Hit]:
+    """Plain full-text search: the lexical half on its own.
+
+    Scored by BM25 over the analysed fields, which is the baseline any vector
+    retrieval has to beat to be worth its cost.
+    """
+    import couchbase.search as search
+    from couchbase.options import SearchOptions
+
+    request = search.SearchRequest.create(text_query)
+    scope = cluster.bucket(bucket_name).scope(scope_name)
+    result = scope.search(index_name, request, SearchOptions(limit=k, fields=list(fields)))
+    return [Hit(id=row.id, score=row.score, fields=row.fields or {}) for row in result.rows()]
+
+
 def hybrid_search(
     cluster,
     *,
@@ -459,17 +483,24 @@ def hybrid_search(
     k: int = 5,
     fields: Sequence[str] = ("*",),
     num_candidates: int | None = None,
+    prefilter: Any = None,
 ) -> list[Hit]:
-    """Combine a full-text query with a vector query in one Search request."""
+    """Combine a full-text query with a vector query in one Search request.
+
+    ``prefilter`` narrows the vector half before the nearest-neighbour search,
+    so the candidates it returns are drawn only from documents that match it.
+    """
     import couchbase.search as search
     from couchbase.options import SearchOptions
     from couchbase.vector_search import VectorQuery, VectorSearch
 
     vector = np.asarray(query_vector, dtype=np.float32).ravel().tolist()
+    kwargs: dict[str, Any] = {"num_candidates": num_candidates or max(k, 10)}
+    if prefilter is not None:
+        kwargs["prefilter"] = prefilter
+
     request = search.SearchRequest.create(text_query).with_vector_search(
-        VectorSearch.from_vector_query(
-            VectorQuery.create(vector_field, vector, num_candidates=num_candidates or max(k, 10))
-        )
+        VectorSearch.from_vector_query(VectorQuery.create(vector_field, vector, **kwargs))
     )
     scope = cluster.bucket(bucket_name).scope(scope_name)
     result = scope.search(index_name, request, SearchOptions(limit=k, fields=list(fields)))

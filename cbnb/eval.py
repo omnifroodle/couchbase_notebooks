@@ -25,7 +25,15 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
-__all__ = ["DEFAULT_GAINS", "Run", "compare", "measure_names", "score_run", "to_qrels"]
+__all__ = [
+    "DEFAULT_GAINS",
+    "Run",
+    "compare",
+    "measure_names",
+    "score_per_query",
+    "score_run",
+    "to_qrels",
+]
 
 #: WANDS' three grades as gains. Exact is worth twice a Partial; Irrelevant is
 #: worth nothing. Deliberately simple, and deliberately arguable: raise Exact to
@@ -96,6 +104,26 @@ def score_run(
 
     scored = ir_measures.calc_aggregate(_parse(measures), dict(qrels), run.as_dict())
     return {str(measure): value for measure, value in scored.items()}
+
+
+def score_per_query(
+    run: Run,
+    qrels: Mapping[str, Mapping[str, int]],
+    measure: str = "nDCG@10",
+) -> dict[str, float]:
+    """One measure, per query, keyed by query id.
+
+    An aggregate hides which queries a change helped and which it broke, and
+    those are usually the interesting ones -- a mean that barely moves can be a
+    large gain on half the queries cancelling a large loss on the rest.
+    """
+    import ir_measures
+
+    parsed = _parse([measure])[0]
+    return {
+        m.query_id: m.value
+        for m in ir_measures.iter_calc([parsed], dict(qrels), run.as_dict())
+    }
 
 
 def compare(

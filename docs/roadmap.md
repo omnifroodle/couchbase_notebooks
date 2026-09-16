@@ -80,7 +80,7 @@ See [Readiness](#readiness) for the mechanism — the important property is that
 generated from what each notebook declares, so adding a notebook never means editing this
 one.
 
-**`retrieval/01` — Hybrid and filtered retrieval, measured.**
+**`retrieval/01` — Hybrid and filtered retrieval, measured.** *Built 2026-09-16.*
 WANDS ships 480 queries and 233k relevance judgements that we currently ignore. Compare
 BM25, vector, hybrid, and filtered-hybrid over the same queries with NDCG@10 and recall@50.
 No new dataset, no new LLM spend. Two reasons it goes first: it is the notebook retrieval
@@ -103,7 +103,7 @@ Ordered roughly by value within each track. Nothing here is scheduled.
 
 | Idea | Note |
 | --- | --- |
-| Hybrid + filtered, measured | Next up. Creates `cbnb.eval`. |
+| Hybrid + filtered, measured | Shipped. Created `cbnb.eval` and the pooled WANDS benchmark. |
 | Freshness — a document changes, its embedding is now a lie | The most Couchbase-native story after single-write. Almost nobody demos it. See warnings: free-tier services. |
 | SQL++ and vector search in one query | Joining vector hits against structured data in one statement. A real differentiator against standalone vector stores; currently unrepresented. |
 | Cost and latency engineering | Quantisation, dimension choice, `vector_index_optimized_for`, cheap-retrieve → expensive-rerank cascade. "Same accuracy, 10x cheaper" is the most manager-legible result available. |
@@ -114,7 +114,7 @@ Ordered roughly by value within each track. Nothing here is scheduled.
 
 | Idea | Note |
 | --- | --- |
-| RAG with citations | Next up after 02. |
+| RAG with citations | **Next up.** Blocked on choosing a prose corpus. |
 | Chat with memory | Working memory vs. durable memory, recall over past turns, what to forget. |
 | Agent memory with `agentc` | **Pin down the actual current API surface before planning this.** Do not design from memory of the library. |
 | Agentic retrieval / query planning | Includes the second-pass "fitting" idea from notebook 01: use Couchbase indexes to build a short candidate list, then a narrow refining prompt. |
@@ -401,6 +401,10 @@ norms about the history being authored under a personal email.
 
 ## Still open
 
+- **A recall figure is meaningless without its ceiling.** WANDS judges a median of 125
+  products relevant per query, so the best possible R@50 on this benchmark is 0.462 — the
+  strategies reach 87% of that. Any future notebook reporting recall must report what was
+  achievable, or it is quoting a number that looks like a failure and isn't.
 - Which corpus serves `flows/` and `data-model/`? This is the gating decision for both
   tracks, and the most expensive one to get wrong.
 - Does `agentc` merit a notebook at all, or a section inside the chat-with-memory one?

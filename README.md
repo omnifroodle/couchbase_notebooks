@@ -12,6 +12,7 @@ GitHub with their outputs stored, and they run unmodified on Colab.
 | Notebook | Track | What it shows | Result |
 | --- | --- | --- | --- |
 | [Can I run these?](notebooks/00_check_setup.ipynb) | — | **Start here.** Checks your credentials for real — a live connection and a live model call — then tells you which notebook below you can run right now, and what to fix if you can't. | — |
+| [Recall, precision, and the price of a filter](notebooks/retrieval/01_hybrid_and_filtered.ipynb) | retrieval | Four retrieval strategies — BM25, vector, hybrid, filtered-hybrid — over 40 real queries with 7,000 human relevance judgements, scored with `trec_eval`. No LLM, no cost. | No winner: vector leads nDCG@10 (0.78 vs 0.71), the hybrids lead recall@50 |
 | [Don't classify. Hallucinate.](notebooks/enrich/01_hypothetical_classification.ipynb) | enrich | Classify into a 1,623-category taxonomy that never enters the prompt. A cheap model invents a plausible category path; Couchbase Vector Search snaps it to a real one. | 48.7% → 71.3% department accuracy over a no-LLM baseline, n=150 |
 
 Notebooks are grouped by track — **retrieval** (recall mechanics), **flows** (RAG, chat,
