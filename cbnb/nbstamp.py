@@ -43,12 +43,32 @@ def has_outputs(nb: dict[str, Any]) -> bool:
     return any(cell.get("outputs") for cell in nb.get("cells", []) if cell.get("cell_type") == "code")
 
 
+def declares_cleared(nb: dict[str, Any]) -> bool:
+    """True when this notebook's outputs should never be committed.
+
+    Most notebooks commit their outputs: the output *is* the argument, and
+    GitHub's rendering of it is how most people read them. A few produce nothing
+    generalisable -- a setup check describes the machine that ran it, down to its
+    cluster address and its RAM -- and for those a stored output is noise at
+    best, and someone else's configuration leaking into the repo at worst.
+    """
+    return (nb.get("metadata", {}).get(STAMP_KEY) or {}).get("outputs") == "cleared"
+
+
+def clear_outputs(nb: dict[str, Any]) -> None:
+    for cell in nb.get("cells", []):
+        if cell.get("cell_type") == "code":
+            cell["outputs"] = []
+            cell["execution_count"] = None
+
+
 def stamp(nb: dict[str, Any], version: str = "") -> None:
     """Record that ``nb``'s outputs were produced from its current sources.
 
     Also strips editor metadata and per-cell execution timestamps, so a ship
     run produces the smallest diff that still captures what changed.
     """
+    cleared = declares_cleared(nb)  # read before the stamp below overwrites it
     metadata = nb.setdefault("metadata", {})
     for key in list(metadata):
         if key not in KEEP_METADATA:
@@ -62,9 +82,16 @@ def stamp(nb: dict[str, Any], version: str = "") -> None:
         cell_meta.pop("execution", None)
         cell_meta.pop("ExecuteTime", None)
 
+    shipped_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+    if cleared:
+        # Nothing is stored, so nothing can go stale: no source hash to record.
+        clear_outputs(nb)
+        metadata[STAMP_KEY] = {"outputs": "cleared", "checked_at": shipped_at}
+        return
+
     metadata[STAMP_KEY] = {
         "source_hash": source_hash(nb),
-        "shipped_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
+        "shipped_at": shipped_at,
         **({"cbnb_version": version} if version else {}),
     }
 
@@ -75,10 +102,20 @@ def verify(nb: dict[str, Any]) -> tuple[str, str]:
     Returns ``(status, message)`` where status is one of:
 
     * ``"shipped"``   -- outputs match the sources.
+    * ``"cleared"``   -- outputs cleared on purpose; see :func:`declares_cleared`.
     * ``"unshipped"`` -- no outputs and no stamp; fine while a notebook is in progress.
     * ``"stale"``     -- code changed since the last ship.
     * ``"unstamped"`` -- outputs exist but did not come from a ship run.
+    * ``"uncleared"`` -- outputs stored in a notebook that says it stores none.
     """
+    if declares_cleared(nb):
+        if has_outputs(nb):
+            return "uncleared", (
+                "stores outputs, but its metadata says they are cleared on purpose "
+                "(they describe whoever ran it last, not the technique)"
+            )
+        return "cleared", "outputs cleared by design"
+
     recorded = (nb.get("metadata", {}).get(STAMP_KEY) or {}).get("source_hash")
     if recorded:
         if recorded == source_hash(nb):

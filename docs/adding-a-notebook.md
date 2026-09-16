@@ -45,6 +45,14 @@ everything through `cbnb.config`. It resolves env → `.env` → Colab secrets �
 most people will read the notebook — treat it as the primary artifact. It also
 means a stray `print(api_key)` gets committed, so check the diff.
 
+**Unless the output describes the runner, not the technique.** A setup check
+prints a cluster address, a provider and an amount of RAM: useless to a reader
+and someone else's configuration in a public repo. Those notebooks set
+`"cbnb": {"outputs": "cleared"}` in their notebook metadata; `make ship` runs
+them to prove they work and then clears what they printed, and the checker fails
+if outputs ever reappear. Tell the reader in the notebook that it is empty by
+design.
+
 **Keep the technique in the notebook and the plumbing in `cbnb`.** If a cell is
 twenty lines of index configuration, move it into `cbnb/couchbase_io.py` and
 call it. The notebook should read as an argument, not a script.

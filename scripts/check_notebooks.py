@@ -108,7 +108,7 @@ def check(path: Path) -> tuple[list[str], list[str]]:
                     problems.append(f"cell {i}: contains the value of {key} from .env")
 
     status, message = verify(nb)
-    if status in {"stale", "unstamped"}:
+    if status in {"stale", "unstamped", "uncleared"}:
         problems.append(f"{message}. Run `make ship`, or `git restore {path.relative_to(ROOT)}`")
     elif status == "unshipped":
         warnings.append(message)

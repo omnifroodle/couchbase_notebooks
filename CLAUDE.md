@@ -54,6 +54,24 @@ without running them. Consequences:
 The ship stamp hashes **code cells only**, so prose can be fixed without a re-run. Editing a
 code cell means re-shipping, which means a working cluster and a working API key.
 
+### Unless the output isn't about the technique
+
+Commit outputs when **the output is the argument** — a measurement, a ranking, a model's
+answer. Clear them when the output only describes *whoever ran it last*: a cluster address, a
+provider name, an amount of RAM. That is noise to a reader and someone else's configuration
+leaking into a public repo.
+
+Declare it in the notebook's own metadata and `make ship` does the rest — it runs the
+notebook to prove it works, then clears what it printed:
+
+```json
+"metadata": { "cbnb": { "outputs": "cleared" } }
+```
+
+`check_notebooks.py` then *fails* if that notebook ever has stored outputs. Say so in the
+notebook too, so a reader on GitHub knows it is empty on purpose rather than broken.
+`00_check_setup` is the only one of these so far.
+
 ## Before committing
 
 ```bash
