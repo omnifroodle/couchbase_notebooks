@@ -33,10 +33,10 @@ run-to:
 # Interactive exploration on a throwaway copy. Keeps an existing scratch copy
 # (it may have work in it) unless FRESH=1.
 scratch:
-	@n=$$(find notebooks -name "$(NB)*.ipynb" | wc -l); \
+	@n=$$(find notebooks -path "*/$(NB)*.ipynb" | wc -l); \
 	if [ "$$n" -gt 1 ]; then echo "NB=$(NB) matches more than one notebook:"; \
-	  find notebooks -name "$(NB)*.ipynb" | sort | sed 's|^notebooks/|  |'; exit 1; fi; \
-	src=$$(find notebooks -name "$(NB)*.ipynb" | head -1); \
+	  find notebooks -path "*/$(NB)*.ipynb" | sort | sed 's|^notebooks/|  |'; exit 1; fi; \
+	src=$$(find notebooks -path "*/$(NB)*.ipynb" | head -1); \
 	if [ -z "$$src" ]; then echo "No notebook matches NB=$(NB)"; exit 1; fi; \
 	dst=build/scratch/$$(basename $$src); \
 	mkdir -p build/scratch; \
