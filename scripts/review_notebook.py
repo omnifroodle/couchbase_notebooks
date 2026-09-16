@@ -29,6 +29,10 @@ def resolve(name: str) -> Path | None:
     if candidate.exists():
         return candidate
     matches = sorted(ROOT.glob(f"notebooks/**/{name}*.ipynb"))
+    if len(matches) > 1:
+        listed = ", ".join(str(m.relative_to(ROOT / "notebooks")) for m in matches)
+        print(f"{name!r} matches more than one notebook: {listed}")
+        return None
     return matches[0] if matches else None
 
 

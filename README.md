@@ -38,7 +38,7 @@ git clone https://github.com/omnifroodle/couchbase_notebooks.git && cd couchbase
 make setup             # .venv + editable install + .env from the example
 ```
 
-Then `make run NB=01` to execute a notebook headless, or open it in VS Code. The edit/run
+Then `make run NB=retrieval/01` to execute a notebook headless, or open it in VS Code. The edit/run
 loop — autoreloading helpers, cached LLM calls, and shipping stored outputs — is in
 [`docs/local-development.md`](docs/local-development.md).
 
@@ -72,8 +72,10 @@ The shared helper package, so the notebooks show the technique and not the plumb
 | `llm.py` | One client for any OpenAI-compatible endpoint. Structured output that degrades gracefully, a disk cache, token accounting. |
 | `embeddings.py` | Local sentence-transformers or an API endpoint. Always normalised. |
 | `datasets.py` | Openly-licensed datasets, with small samples committed so notebooks run instantly. |
+| `eval.py` | Retrieval metrics via `ir-measures`/`trec_eval`, plus the judgement calls that are ours. |
 | `readiness.py` | What this environment can actually do. Live checks, and what to do when one fails. |
 | `inventory.py` | What each notebook asks for, read from the notebook files themselves. |
+| `review.py` | Optional. Asks a model which prose a re-run invalidated. Advisory, never published. |
 
 ### The LLM client
 
@@ -102,16 +104,33 @@ base URL with `CBNB_LLM_BASE_URL`.
 | --- | --- | --- |
 | [WANDS](https://github.com/wayfair/WANDS) | MIT | Real product listings, a real 1,623-node retail taxonomy, 480 search queries, 233k relevance judgements |
 
-A stratified product sample, the full taxonomy and all queries are committed under
-[`data/`](data/) so notebooks run before anything is downloaded. The full 43k-product file is
-fetched on demand.
+Committed under [`data/`](data/) so notebooks run before anything is downloaded:
+
+- a stratified 2,500-product sample, the full 1,623-path taxonomy, and all 480 queries;
+- a **retrieval benchmark** — 40 queries, the 6,482 products judged for them, and all 6,986
+  of those judgements. Enough to score a search system honestly, small enough to index in a
+  minute.
+
+The full 43k-product catalogue and the 233k-judgement file download on demand.
+
+Recall on that benchmark is measured against the judged pool, not the whole catalogue — see
+the notebook, which computes what the best possible score actually is.
+
+### Measuring retrieval
+
+`cbnb.eval` does not implement its own metrics. It wraps
+[`ir-measures`](https://ir-measur.es/), which wraps `pytrec_eval`, which wraps `trec_eval` —
+the implementation IR papers report against — so `nDCG@10` here means what a retrieval person
+expects it to mean. What the notebooks keep visible is the part that is a judgement rather
+than a calculation: which measures to report, and how graded labels become gains.
 
 ## Adding a notebook
 
-See [`docs/adding-a-notebook.md`](docs/adding-a-notebook.md). Then:
+See [`docs/adding-a-notebook.md`](docs/adding-a-notebook.md) for the rules that keep these
+runnable, and [`CLAUDE.md`](CLAUDE.md) for the short version. Then:
 
 ```bash
-.venv/bin/python scripts/check_notebooks.py
+make check
 ```
 
 ## Licence

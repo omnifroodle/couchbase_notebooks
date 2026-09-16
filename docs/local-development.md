@@ -12,6 +12,9 @@ make setup     # .venv on Python 3.11, installs cbnb in editable mode, creates .
 Fill in `.env`: the `CB_*` values ([`capella-setup.md`](capella-setup.md)) and one model
 provider key. Add your current IP to the Capella allow list.
 
+Notebooks live under a track directory, so `NB=` takes a path like `retrieval/01`. A bare
+`NB=01` now matches two notebooks and every target refuses it rather than guessing.
+
 ## Three modes, kept apart
 
 Most accidental notebook edits happen while *testing*: a debug `print` that gets
@@ -20,10 +23,10 @@ the real file.
 
 | I want to… | Do | Touches `notebooks/`? |
 | --- | --- | --- |
-| Check it runs top to bottom | `make run NB=01` | No — writes `build/` |
-| Poke at it interactively | `make scratch NB=01` | No — a copy in `build/scratch/` |
+| Check it runs top to bottom | `make run NB=retrieval/01` | No — writes `build/` |
+| Poke at it interactively | `make scratch NB=retrieval/01` | No — a copy in `build/scratch/` |
 | Change the notebook | open `notebooks/<track>/NN_….ipynb` on purpose | Yes |
-| Publish outputs for GitHub | `make ship NB=01` | Yes — outputs + stamp |
+| Publish outputs for GitHub | `make ship NB=retrieval/01` | Yes — outputs + stamp |
 
 ### Test: `make run`
 
@@ -35,7 +38,7 @@ from a cell you deleted, a cell that only works the second time — and this doe
 Run just the first part, e.g. everything before the first LLM call:
 
 ```bash
-make run-to NB=01 UNTIL='from cbnb.llm import'
+make run-to NB=enrich/01 UNTIL='from cbnb.llm import'
 ```
 
 ### Explore: `make scratch`
@@ -64,7 +67,7 @@ GitHub renders them, strips editor metadata, and **stamps** the notebook with a 
 cell sources. Then it runs the checks. If any cell fails, the notebook is not modified — the
 partial run goes to `build/`.
 
-### After a re-ship: `make review NB=01`
+### After a re-ship: `make review NB=enrich/01`
 
 The thing a re-ship breaks that nothing else catches. Prose naming specifics from the run —
 the lowest-scoring row, a product that resolved wrongly, the shape of the failures — quietly

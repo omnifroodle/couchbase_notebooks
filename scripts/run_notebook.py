@@ -38,7 +38,9 @@ def resolve_notebook(arg: str) -> Path:
         return matches[0]
     if not matches:
         sys.exit(f"No notebook matches {arg!r}")
-    sys.exit(f"{arg!r} is ambiguous: " + ", ".join(m.name for m in matches))
+    listed = "\n  ".join(str(m.relative_to(ROOT / "notebooks")).removesuffix(".ipynb")
+                         for m in matches)
+    sys.exit(f"{arg!r} matches more than one notebook. Use one of:\n  {listed}")
 
 
 def preflight() -> list[str]:

@@ -37,7 +37,11 @@ Creating a codespace takes a few minutes the first time. `.devcontainer/post-cre
 2. downloads the embedding model the notebooks use;
 3. installs the notebook checks as a git pre-commit hook.
 
-The notebook opens when that finishes. If VS Code asks for a kernel, choose `.venv`.
+When that finishes, [`notebooks/00_check_setup.ipynb`](../notebooks/00_check_setup.ipynb)
+opens. Run it first: it checks your credentials against the real services and tells you which
+notebooks you can run, which is a much better first minute than discovering a rejected key
+halfway through a demo. If VS Code asks for a kernel, choose `.venv`.
+
 Reopening the same codespace later (the badge's *Resume* option) skips all of this.
 
 ## Prefer JupyterLab?
