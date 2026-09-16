@@ -1,5 +1,8 @@
 # Adding a notebook
 
+The rules below are the enforced ones. For what to build next, how notebooks are grouped,
+and conventions still being settled, see [`roadmap.md`](roadmap.md).
+
 ## Layout
 
 ```

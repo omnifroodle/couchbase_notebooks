@@ -13,6 +13,8 @@ GitHub with their outputs stored, and they run unmodified on Colab.
 | --- | --- | --- |
 | 01 | [Don't classify. Hallucinate.](notebooks/01_hypothetical_classification.ipynb) | Classify into a 1,623-category taxonomy that never enters the prompt. A cheap model invents a plausible category path; Couchbase Vector Search snaps it to a real one. Measured against a no-LLM baseline. |
 
+What's coming, and how these are organised: [`docs/roadmap.md`](docs/roadmap.md).
+
 ## Getting started
 
 **1. A Capella cluster.** Free tier is enough. Five minutes:
