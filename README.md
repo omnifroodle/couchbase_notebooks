@@ -13,6 +13,7 @@ GitHub with their outputs stored, and they run unmodified on Colab.
 | --- | --- | --- | --- |
 | [Can I run these?](notebooks/00_check_setup.ipynb) | — | **Start here.** Checks your credentials for real — a live connection and a live model call — then tells you which notebook below you can run right now, and what to fix if you can't. | — |
 | [Recall, precision, and the price of a filter](notebooks/retrieval/01_hybrid_and_filtered.ipynb) | retrieval | Four retrieval strategies — BM25, vector, hybrid, filtered-hybrid — over 40 real queries with 7,000 human relevance judgements, scored with `trec_eval`. No LLM, no cost. | No winner: vector leads nDCG@10 (0.78 vs 0.71), the hybrids lead recall@50 |
+| [Your RAG demo works. Now prove it.](notebooks/flows/01_rag_that_you_can_trust.ipynb) | flows | Build RAG over 20 real contracts, answer one query beautifully, then measure against 820 questions a lawyer answered first — and split the failures into retrieval's fault and the model's. | 64.4% correct, fabricating answers for 23 of 93 unanswerable questions; one prompt paragraph → 70.6% |
 | [Don't classify. Hallucinate.](notebooks/enrich/01_hypothetical_classification.ipynb) | enrich | Classify into a 1,623-category taxonomy that never enters the prompt. A cheap model invents a plausible category path; Couchbase Vector Search snaps it to a real one. | 48.7% → 71.3% department accuracy over a no-LLM baseline, n=150 |
 
 Notebooks are grouped by track — **retrieval** (recall mechanics), **flows** (RAG, chat,
@@ -103,6 +104,11 @@ base URL with `CBNB_LLM_BASE_URL`.
 | Dataset | Licence | Used for |
 | --- | --- | --- |
 | [WANDS](https://github.com/wayfair/WANDS) | MIT | Real product listings, a real 1,623-node retail taxonomy, 480 search queries, 233k relevance judgements |
+| [CUAD](https://www.atticusprojectai.org/cuad) | CC BY 4.0 | 510 SEC-filed commercial contracts, annotated by lawyers for 41 clause categories — every annotation a character span |
+
+CUAD's annotations are CC BY 4.0; the underlying contracts are EDGAR filings whose licence
+status the CUAD authors do not warrant. Note that **62% of its questions have no answer in
+their contract** — which is what makes it a real test of whether a system will say so.
 
 Committed under [`data/`](data/) so notebooks run before anything is downloaded:
 

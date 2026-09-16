@@ -87,7 +87,7 @@ No new dataset, no new LLM spend. Two reasons it goes first: it is the notebook 
 people will judge the whole repo by, and it forces `cbnb.eval` into existence — which
 everything after it needs in order to make an honest claim.
 
-**`flows/01` — RAG with citations.**
+**`flows/01` — RAG you can trust.** *Built 2026-09-16.*
 Deliberately stresses what 01 and 02 did not: a prose corpus, chunking and parent/child
 document modelling, retrieval → generation, and groundedness checking. Third rather than
 second because it needs `cbnb.eval` to say anything true about whether the answers are
@@ -114,7 +114,7 @@ Ordered roughly by value within each track. Nothing here is scheduled.
 
 | Idea | Note |
 | --- | --- |
-| RAG with citations | **Next up.** Blocked on choosing a prose corpus. |
+| RAG with citations | Shipped as *Your RAG demo works. Now prove it.* |
 | Chat with memory | Working memory vs. durable memory, recall over past turns, what to forget. |
 | Agent memory with `agentc` | **Pin down the actual current API surface before planning this.** Do not design from memory of the library. |
 | Agentic retrieval / query planning | Includes the second-pass "fitting" idea from notebook 01: use Couchbase indexes to build a short candidate list, then a narrow refining prompt. |
@@ -443,6 +443,12 @@ approaches, they do not claim a recall breakthrough.
 
 ## Still open
 
+- **`vector_index_definition` cannot emit numeric fields.** Only text and keyword. A
+  `NumericRangeQuery` against a field that is not in the mapping matches *nothing* and raises
+  nothing — in `flows/01` that produced empty retrieval and a model politely reporting "the
+  excerpts are empty", which reads as a bad model rather than a bad filter. `data-model/` is
+  heading straight at filtering on extracted dates and amounts, so this needs fixing rather
+  than working around with keyword ids.
 - **A recall figure is meaningless without its ceiling.** WANDS judges a median of 125
   products relevant per query, so the best possible R@50 on this benchmark is 0.462 — the
   strategies reach 87% of that. Any future notebook reporting recall must report what was
