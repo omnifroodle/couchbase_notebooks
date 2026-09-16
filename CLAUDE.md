@@ -77,6 +77,11 @@ notebook to prove it works, then clears what it printed:
 notebook too, so a reader on GitHub knows it is empty on purpose rather than broken.
 `00_check_setup` is the only one of these so far.
 
+**Per cell**, tag a cell `cbnb-ephemeral` and `make ship` runs it and empties just that one,
+in a notebook that otherwise commits everything. For output worth seeing live and wrong to
+publish — `cbnb.review.commentary`, which is unreviewed, differs every run, and is not one
+of the notebook's claims.
+
 ## Before committing
 
 ```bash

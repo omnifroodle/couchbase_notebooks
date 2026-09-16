@@ -1,4 +1,17 @@
-"""Ask a model which of a notebook's claims its own outputs no longer support.
+"""Two ways of pointing a model at a notebook's results, both deliberately weak.
+
+:func:`check_claims` audits finished prose **for the author**: which statements
+do the stored outputs no longer support? :func:`commentary` explains a fresh
+result **to a live reader**, and exists only in their session -- tag its cell
+``cbnb-ephemeral`` and ``make ship`` runs it and then empties it.
+
+Neither is allowed to become one of the notebook's claims. The prose is written
+by a person and backed by a measurement; that is what this repo is for. These
+are a second pair of eyes and a tutor, respectively, and both are fallible.
+
+---
+
+Ask a model which of a notebook's claims its own outputs no longer support.
 
 Prose in these notebooks names specifics from the run stored beside it: the
 lowest-scoring row, a particular product that resolved wrongly, the shape of the
@@ -33,7 +46,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-__all__ = ["Finding", "Report", "check_claims", "evidence_of", "prose_of"]
+__all__ = [
+    "Commentary",
+    "Finding",
+    "Report",
+    "check_claims",
+    "commentary",
+    "evidence_of",
+    "prose_of",
+]
 
 #: Per-cell cap on output text handed to the model. Long tables say what they
 #: need to say early, and one runaway cell should not crowd out the rest.
@@ -245,3 +266,129 @@ def check_claims(
         for f in review.findings
     ]
     return Report(findings=findings, model=llm.model)
+
+
+# --- Live commentary -------------------------------------------------------
+#
+# The other half of this module, pointed the other way: check_claims audits
+# finished prose for the author, this explains a fresh result to whoever is
+# running the notebook. It exists only in a live session. Put it in a cell
+# tagged `cbnb-ephemeral` (see cbnb.nbstamp) so `make ship` runs it and then
+# empties it: a model's reading of the results is unreviewed, differs every run,
+# and is not one of the notebook's claims. The prose around it is.
+
+TUTOR_SYSTEM = """You are a teaching assistant for a technical notebook, reading a result \
+the reader has just produced and helping them interpret it.
+
+Ground every sentence in the figures you are given. Where the result differs from what the \
+author expected, say so plainly and say what the figures actually show -- that is the most \
+useful thing you can offer, and agreeing pleasantly is the least.
+
+Use the figures as printed. Do not derive new ones: no converting rates into counts, no \
+ratios, no recomputed totals. Arithmetic you do in your head arrives looking exactly as \
+confident as the numbers you were given, and it is the one thing here nobody checks. A \
+difference between two printed figures is the most you should ever compute, and describing \
+the direction and rough size is usually better than computing anything at all.
+
+If the evidence is too thin to support a reading, say that instead of filling the space.
+
+Four sentences or fewer, or up to three short bullets. Plain markdown, no heading. The \
+reader can see the output already; tell them what it means, not what it says."""
+
+TUTOR_USER = """What the notebook is demonstrating:
+{context}
+
+What the author expected:
+{expectation}
+
+The result the reader is looking at:
+{evidence}
+{question}"""
+
+
+@dataclass
+class Commentary:
+    """A model's reading of a fresh result, for a live reader only."""
+
+    text: str = ""
+    model: str = ""
+    skipped: str = ""
+
+    _BANNER = ("**Agent commentary** — written by `{model}` from the output above, in this "
+               "session only. Unreviewed, and not one of this notebook's claims.")
+
+    def _body(self) -> str:
+        if self.skipped:
+            return f"*Agent commentary unavailable: {self.skipped}*"
+        return f"> {self._BANNER.format(model=self.model)}\n\n{self.text}"
+
+    def _repr_markdown_(self) -> str:
+        return self._body()
+
+    def __str__(self) -> str:
+        if self.skipped:
+            return f"Agent commentary unavailable: {self.skipped}"
+        return f"--- agent commentary ({self.model}), unreviewed ---\n{self.text}"
+
+
+def commentary(
+    evidence: Any,
+    expectation: str = "",
+    *,
+    context: str = "",
+    question: str = "",
+    model: str | None = None,
+    provider: str | None = None,
+) -> Commentary:
+    """Explain a fresh result to whoever is running the notebook.
+
+    Args:
+        evidence: the result itself -- a DataFrame, dict, string, anything whose
+            printed form carries the numbers. Rendered with ``str``.
+        expectation: what the notebook predicted would happen. Give it honestly,
+            including the parts that are uncertain: it is what lets the model
+            tell the reader the result disagreed.
+        context: one line on what is being demonstrated, if it isn't obvious.
+        question: an explicit question to answer instead of a general reading.
+
+    Returns a :class:`Commentary`, which renders as markdown in a notebook. Never
+    raises -- with no model configured it renders a one-line note.
+    """
+    text = evidence if isinstance(evidence, str) else _render_evidence(evidence)
+    if not text.strip():
+        return Commentary(skipped="there is no result to read")
+
+    try:
+        from cbnb.config import load_settings
+        from cbnb.llm import LLM
+
+        cfg = load_settings()
+        chosen = model or os.environ.get("CBNB_REVIEW_MODEL") or cfg.llm_model or None
+        llm = LLM(provider or cfg.llm_provider, model=chosen)
+        answer = llm.chat(
+            TUTOR_USER.format(
+                context=context or "(not stated)",
+                expectation=expectation or "(not stated)",
+                evidence=text,
+                question=f"\nThe reader asks: {question}" if question else "",
+            ),
+            system=TUTOR_SYSTEM,
+            temperature=0,
+            max_tokens=400,
+        )
+    except Exception as exc:  # noqa: BLE001 - commentary is a bonus, never a blocker
+        return Commentary(skipped=f"{type(exc).__name__}: {_first_line(exc)}")
+
+    return Commentary(text=answer.strip(), model=llm.model)
+
+
+def _render_evidence(value: Any) -> str:
+    """Printed form of a result, preferring the readable one a DataFrame offers."""
+    for attr in ("to_string", "to_markdown"):
+        method = getattr(value, attr, None)
+        if callable(method):
+            try:
+                return str(method())
+            except Exception:  # noqa: BLE001 - fall back to repr
+                break
+    return str(value)

@@ -57,6 +57,24 @@ design.
 twenty lines of index configuration, move it into `cbnb/couchbase_io.py` and
 call it. The notebook should read as an argument, not a script.
 
+**A tutor for live readers, if you want one.** `cbnb.review.commentary` asks a
+model to interpret a fresh result for whoever is running the notebook — useful
+where the result rewards interpretation and the reader may not know what to look
+for. Tell it what you expected, honestly, including the uncertain parts: that is
+what lets it tell the reader when the run disagreed with you.
+
+```python
+commentary(results, expectation="We expected the department gap to be large and "
+                                "exact-path accuracy to be noisy at n=150.")
+```
+
+Tag that cell **`cbnb-ephemeral`** (JupyterLab: the property inspector's Cell
+Tags box). `make ship` runs it and then empties it, and the checker fails if the
+output ever survives. That is not optional politeness — in testing, the model
+read a results table correctly and then invented a count to support its
+strongest claim. It is a tutor for someone who can see the real output next to
+it, never a claim this repo publishes.
+
 **Make it idempotent.** Every `ensure_*` helper is safe to re-run. A reader who
 runs cell 8 twice should not get an error.
 

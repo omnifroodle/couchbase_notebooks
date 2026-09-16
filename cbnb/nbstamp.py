@@ -43,6 +43,36 @@ def has_outputs(nb: dict[str, Any]) -> bool:
     return any(cell.get("outputs") for cell in nb.get("cells", []) if cell.get("cell_type") == "code")
 
 
+#: Cells tagged this way are executed on a ship run and then emptied. For output
+#: that is worth seeing live and wrong to publish -- an agent's commentary on the
+#: results, which is unreviewed, changes every run, and is not one of the
+#: notebook's claims. A whole-notebook flag cannot express this: notebooks that
+#: commit their outputs may still hold a cell that must not be committed.
+EPHEMERAL_TAG = "cbnb-ephemeral"
+
+
+def is_ephemeral(cell: dict[str, Any]) -> bool:
+    return EPHEMERAL_TAG in (cell.get("metadata", {}).get("tags") or [])
+
+
+def clear_ephemeral(nb: dict[str, Any]) -> list[int]:
+    """Empty the outputs of tagged cells. Returns the cell indices cleared."""
+    cleared = []
+    for i, cell in enumerate(nb.get("cells", [])):
+        if cell.get("cell_type") == "code" and is_ephemeral(cell) and cell.get("outputs"):
+            cell["outputs"] = []
+            cell["execution_count"] = None
+            cleared.append(i)
+    return cleared
+
+
+def ephemeral_with_outputs(nb: dict[str, Any]) -> list[int]:
+    return [
+        i for i, cell in enumerate(nb.get("cells", []))
+        if cell.get("cell_type") == "code" and is_ephemeral(cell) and cell.get("outputs")
+    ]
+
+
 def declares_cleared(nb: dict[str, Any]) -> bool:
     """True when this notebook's outputs should never be committed.
 
@@ -82,6 +112,10 @@ def stamp(nb: dict[str, Any], version: str = "") -> None:
         cell_meta.pop("execution", None)
         cell_meta.pop("ExecuteTime", None)
 
+    # Before anything else: these ran, and now they go. Independent of whether
+    # the notebook as a whole commits its outputs.
+    clear_ephemeral(nb)
+
     shipped_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     if cleared:
         # Nothing is stored, so nothing can go stale: no source hash to record.
@@ -108,6 +142,14 @@ def verify(nb: dict[str, Any]) -> tuple[str, str]:
     * ``"unstamped"`` -- outputs exist but did not come from a ship run.
     * ``"uncleared"`` -- outputs stored in a notebook that says it stores none.
     """
+    stragglers = ephemeral_with_outputs(nb)
+    if stragglers:
+        listed = ", ".join(str(i) for i in stragglers)
+        return "uncleared", (
+            f"cell {listed} is tagged {EPHEMERAL_TAG} but has stored outputs "
+            "(unreviewed, run-specific output must not be committed)"
+        )
+
     if declares_cleared(nb):
         if has_outputs(nb):
             return "uncleared", (
