@@ -196,3 +196,83 @@ class Taxonomy:
                 break
             matched += 1
         return matched / len(want)
+
+
+@dataclass
+class EvalSet:
+    """A retrieval benchmark small enough to run, complete enough to trust.
+
+    WANDS judges 480 queries against the full 43k catalogue. Indexing all of
+    that for a demo is slow and mostly wasted: a single query's results are
+    scored against the handful of products anyone judged for it. So this is a
+    **pool** -- a subset of queries, plus every product judged for one of them.
+
+    Pooling is standard practice in IR evaluation, and it has a consequence the
+    notebook using this must state: recall is measured against the pool, not
+    against the whole catalogue. Comparing two systems over the same pool is
+    sound; reading a recall figure as "of everything Wayfair sells" is not.
+    """
+
+    queries: pd.DataFrame  # query_id, query, query_class
+    products: pd.DataFrame  # product_id, product_name, product_class, category_hierarchy
+    labels: pd.DataFrame  # query_id, product_id, label
+
+    def judgements(self) -> list[tuple[str, str, str]]:
+        """``(query_id, product_id, label)`` triples, for :func:`cbnb.eval.to_qrels`."""
+        return [
+            (str(r.query_id), str(r.product_id), r.label)
+            for r in self.labels.itertuples(index=False)
+        ]
+
+    def summary(self) -> str:
+        exact = int((self.labels.label == "Exact").sum())
+        return (f"{len(self.queries)} queries, {len(self.products):,} products, "
+                f"{len(self.labels):,} judgements ({exact:,} Exact)")
+
+
+#: Queries worth evaluating: enough judged products to separate two systems,
+#: few enough to keep the pool indexable, and enough Exact matches that
+#: precision-oriented measures are not all zero.
+_EVAL_MIN_JUDGED, _EVAL_MAX_JUDGED, _EVAL_MIN_EXACT = 40, 400, 5
+_EVAL_SEED = 1729
+
+
+def _build_wands_eval_set(n_queries: int = 40) -> EvalSet:
+    """Rebuild the committed evaluation set from the full WANDS download."""
+    import numpy as np
+
+    labels = load_wands_labels()
+    queries = load_wands_queries()
+
+    judged = labels.groupby("query_id").size()
+    exact = labels[labels.label == "Exact"].groupby("query_id").size()
+    eligible = [
+        qid for qid in judged[(judged >= _EVAL_MIN_JUDGED) & (judged <= _EVAL_MAX_JUDGED)].index
+        if exact.get(qid, 0) >= _EVAL_MIN_EXACT
+    ]
+    chosen = np.random.default_rng(_EVAL_SEED).choice(
+        sorted(eligible), size=min(n_queries, len(eligible)), replace=False
+    )
+    chosen = sorted(int(q) for q in chosen)
+
+    picked_labels = labels[labels.query_id.isin(chosen)][["query_id", "product_id", "label"]]
+    products = _full_products()
+    pool = products[products.product_id.isin(set(picked_labels.product_id))]
+    return EvalSet(
+        queries=queries[queries.query_id.isin(chosen)].reset_index(drop=True),
+        products=pool.sort_values("product_id").reset_index(drop=True),
+        labels=picked_labels.sort_values(["query_id", "product_id"]).reset_index(drop=True),
+    )
+
+
+def load_wands_eval_set() -> EvalSet:
+    """The committed retrieval benchmark, or rebuild it from the full download.
+
+    See :class:`EvalSet` for what pooling means for the numbers.
+    """
+    names = ("wands_eval_queries.tsv", "wands_eval_products.tsv", "wands_eval_labels.tsv")
+    committed = [_committed(name) for name in names]
+    if all(path is not None for path in committed):
+        queries, products, labels = (pd.read_csv(path, sep="\t") for path in committed)
+        return EvalSet(queries=queries, products=products, labels=labels)
+    return _build_wands_eval_set()

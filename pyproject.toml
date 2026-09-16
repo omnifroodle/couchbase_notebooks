@@ -20,9 +20,12 @@ dependencies = [
 
 [project.optional-dependencies]
 local-embeddings = ["sentence-transformers>=3.0"]
+# trec_eval bindings: the reference implementation IR results are reported against.
+# Pure-python wrapper over pytrec-eval-terrier, which ships binary wheels.
+metrics = ["ir-measures>=0.3"]
 plots = ["matplotlib>=3.7"]
 dev = ["jupyter>=1.0", "nbclient>=0.10", "nbformat>=5.10", "ruff>=0.6"]
-all = ["cbnb[local-embeddings,plots,dev]"]
+all = ["cbnb[local-embeddings,plots,metrics,dev]"]
 
 [tool.setuptools]
 packages = ["cbnb"]

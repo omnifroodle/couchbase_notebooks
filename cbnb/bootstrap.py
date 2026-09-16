@@ -33,6 +33,8 @@ CORE_REQUIREMENTS: list[tuple[str, str]] = [
 EXTRA_REQUIREMENTS: dict[str, list[tuple[str, str]]] = {
     "local-embeddings": [("sentence_transformers", "sentence-transformers>=3.0")],
     "plots": [("matplotlib", "matplotlib>=3.7")],
+    # trec_eval bindings for retrieval metrics; wheels, so no compiler needed.
+    "metrics": [("ir_measures", "ir-measures>=0.3")],
 }
 
 

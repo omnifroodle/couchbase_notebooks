@@ -27,12 +27,13 @@ _LAZY = {
     "PROVIDERS": "cbnb.llm",
     "connect": "cbnb.couchbase_io",
     "datasets": "cbnb.datasets",
+    "eval": "cbnb.eval",
     "readiness": "cbnb.readiness",
     "inventory": "cbnb.inventory",
 }
 
 #: Names that resolve to the module itself rather than an attribute of it.
-_LAZY_MODULES = {"datasets", "readiness", "inventory"}
+_LAZY_MODULES = {"datasets", "eval", "readiness", "inventory"}
 
 __all__ = ["bootstrap", "in_colab", "repo_root", "__version__", *_LAZY]
 
