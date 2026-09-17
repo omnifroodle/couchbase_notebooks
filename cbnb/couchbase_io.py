@@ -451,7 +451,13 @@ def indexed_fields(cluster, *, bucket_name: str, scope_name: str, index_name: st
     for mapping in types.values():
         for name, prop in (mapping.get("properties") or {}).items():
             for field in prop.get("fields") or []:
-                found[field.get("name", name)] = field.get("type", "unknown")
+                kind = field.get("type", "unknown")
+                # A keyword field is type "text" with the keyword analyzer; reporting
+                # only "text" hides the difference that decides whether TermQuery works.
+                analyzer = field.get("analyzer")
+                if kind == "text" and analyzer:
+                    kind = f"text ({analyzer})"
+                found[field.get("name", name)] = kind
     return found
 
 

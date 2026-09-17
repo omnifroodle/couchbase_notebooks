@@ -143,8 +143,8 @@ Ordered roughly by value within each track. Nothing here is scheduled.
 
 | Idea | Note |
 | --- | --- |
-| Ingest unstructured, get structured + vectors in one write | `01` shipped: extract, attach, query with SQL++. `02` adds chunks and vectors. |
-| Parent/child chunk modelling | Where chunks live relative to their source document; subdocument operations. |
+| Ingest unstructured, get structured + vectors in one write | Shipped as `01` (extract, attach, SQL++) and `02` (chunks, denormalisation, polyglot query). |
+| Parent/child chunk modelling | Covered by `02`: chunks as derived documents, and what a search index's inability to join forces you to copy down. |
 | Schema evolution | Re-extracting when the extraction prompt improves, without a migration. |
 
 ## Evaluation
