@@ -443,6 +443,12 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
 
 ## Still open
 
+- **Vector scores drift between runs.** Three runs of `retrieval/02` against one index gave
+  vector nDCG@10 of 0.776, 0.779 and 0.781, and flipped which strategy led that column. BM25 is
+  identical every time, so it is the approximate nearest-neighbour search. The notebook's prose
+  now states what holds across runs rather than one run's decimals, but nothing *reports* the
+  spread: `cbnb.eval` could score repeated runs and show a range, which is Evaluation layer 5
+  (stability) arriving early. Until then, any claim resting on a gap of about 0.01 is suspect.
 - **A recall figure is meaningless without its ceiling.** WANDS judges a median of 125 relevant
   products per query, so the best possible R@50 is 0.462 and the strategies reach 87% of it. Any
   notebook reporting recall must report what was achievable.

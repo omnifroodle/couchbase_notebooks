@@ -285,7 +285,10 @@ def check_claims(
             _Review,
             system=SYSTEM,
             temperature=0,
-            max_tokens=2048,  # a findings list with quotes outgrows the default
+            # A findings list with quotes outgrows the default, and a reasoning
+            # model spends part of this budget thinking: at 2048 one returned a
+            # bare "{}" on retrieval/02 and real findings at 12000.
+            max_tokens=16000,
         )
     except Exception as exc:  # noqa: BLE001 - advisory: degrade, never break
         return Report(skipped=f"{type(exc).__name__}: {_first_line(exc)}")
