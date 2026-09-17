@@ -4,7 +4,7 @@ A codespace is this repository checked out in a cloud container, with VS Code in
 browser. Everything works as it does locally — the helpers, `make run`, `make ship`, the
 notebook checks — with nothing to install on your machine.
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/omnifroodle/couchbase_notebooks?quickstart=1)
+[![Open in GitHub Codespaces](https://img.shields.io/badge/Open%20in%20Codespaces-2f363d?logo=github&logoColor=white)](https://codespaces.new/omnifroodle/couchbase_notebooks?quickstart=1)
 
 ## Before you start
 

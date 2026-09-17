@@ -66,7 +66,7 @@ edit/run loop — autoreloading helpers, cached LLM calls, shipping stored outpu
 [`docs/local-development.md`](docs/local-development.md).
 
 *On GitHub Codespaces:*
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/omnifroodle/couchbase_notebooks?quickstart=1)
+[![Open in GitHub Codespaces](https://img.shields.io/badge/Open%20in%20Codespaces-2f363d?logo=github&logoColor=white)](https://codespaces.new/omnifroodle/couchbase_notebooks?quickstart=1)
 — the full repo in a cloud container with VS Code, set up and ready. Credentials go in
 Codespaces secrets, which GitHub offers to collect when you create one. See
 [`docs/codespaces.md`](docs/codespaces.md).
