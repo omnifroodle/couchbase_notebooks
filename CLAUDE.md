@@ -77,6 +77,10 @@ notebook to prove it works, then clears what it printed:
 notebook too, so a reader on GitHub knows it is empty on purpose rather than broken.
 `00_check_setup` is the only one of these so far.
 
+**Every setup cell** is one of these. `cbnb.bootstrap` reports where it ran, the masked
+cluster, the provider and model — true of the last person to ship, and nothing to do with
+the lesson. Tag cell 1 `cbnb-ephemeral`; `check_notebooks.py` fails if it isn't.
+
 **Per cell**, tag a cell `cbnb-ephemeral` and `make ship` runs it and empties just that one,
 in a notebook that otherwise commits everything. For output worth seeing live and wrong to
 publish — `cbnb.review.commentary`, which is unreviewed, differs every run, and is not one

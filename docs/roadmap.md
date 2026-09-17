@@ -431,10 +431,13 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
 - **It calls `data-model/02` ready when `01` can't run.** `02` reads what `01` wrote, and
   nothing declares that, so with `llm` blocked the panel offers a notebook that will fail.
   Needs a way to declare notebook-to-notebook order, which `inventory` doesn't have.
-- **Stored first-cell outputs predate the panel.** `bootstrap` now draws a panel, but the
-  seven shipped notebooks still hold the old two printed lines until each is re-shipped. The
-  ship stamp hashes notebook code, not `cbnb`, so nothing flags it. When the first one is
-  re-shipped, check GitHub's rendering keeps the panel's inline styles — unverified.
+- **Every notebook was publishing its runner's setup.** The bootstrap cell's stored output
+  named the environment, the masked cluster, and the provider and model of whoever shipped last
+  — the exact category `00_check_setup` clears, one cell at a time. Found when the panel change
+  made those outputs look stale. Fixed: setup cells are tagged `cbnb-ephemeral`, and the checker
+  requires it. No re-ship needed, since the stamp hashes code, not tags.
+- **Whether GitHub keeps a panel's inline styles is untested.** No committed output contains a
+  panel yet; check when one first does.
 - **Titles disagree.** `retrieval/02` is "Recall, precision, and the price of a filter" in the
   notebook and "Which parts of that were worth it?" in the README.
 

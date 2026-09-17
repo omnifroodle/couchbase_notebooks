@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from cbnb.inventory import read_lab  # noqa: E402 - needs ROOT on sys.path
-from cbnb.nbstamp import verify  # noqa: E402
+from cbnb.nbstamp import is_ephemeral, verify  # noqa: E402
 
 SECRET_PATTERNS = [
     (re.compile(r"sk-[A-Za-z0-9_\-]{20,}"), "OpenAI-style API key"),
@@ -88,6 +88,12 @@ def check(path: Path) -> tuple[list[str], list[str]]:
         for marker in BOOTSTRAP_MARKERS:
             if marker not in first:
                 problems.append(f"first code cell is missing {marker!r} (see docs/adding-a-notebook.md)")
+        # Its output names the runner's environment, cluster and model -- never the lesson.
+        if not is_ephemeral(code_cells[0]):
+            problems.append(
+                "setup cell is not tagged cbnb-ephemeral (its output describes whoever ran it; "
+                "see CLAUDE.md)"
+            )
 
     for i, cell in enumerate(cells):
         haystacks = ["".join(cell.get("source", []))]

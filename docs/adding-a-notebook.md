@@ -20,7 +20,9 @@ able to open exactly one file and get a result.
 
 **Cell 1 is always the same bootstrap.** Copy it verbatim from an existing
 notebook. It finds `cbnb` in a local checkout, `pip install`s from GitHub on
-Colab, then installs missing dependencies and loads credentials.
+Colab, then installs missing dependencies and loads credentials. Tag it
+**`cbnb-ephemeral`**: what it prints describes the machine that ran it, so
+`make ship` empties it and the checker fails without the tag.
 
 **Declare what the notebook needs, in both places.** The setup call is what
 runs; the header line is what a reader sees on GitHub. `00_check_setup` reads
