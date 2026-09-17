@@ -394,8 +394,13 @@ _CUAD_SAMPLE_SIZE = 20
 _CUAD_SEED = 1729
 
 
-def _build_cuad(n_contracts: int = _CUAD_SAMPLE_SIZE) -> ContractSet:
-    """Rebuild the committed contract sample from the 40 MB CUAD download."""
+def _build_cuad(n_contracts: int = _CUAD_SAMPLE_SIZE, per_type: int | None = 2) -> ContractSet:
+    """Rebuild a contract set from the 40 MB CUAD download.
+
+    ``per_type`` caps how many contracts of one agreement type are eligible,
+    which is what keeps the committed sample from being all distributor
+    agreements. Pass ``None`` for everything, which is what ``full=True`` means.
+    """
     import json
 
     import numpy as np
@@ -418,14 +423,18 @@ def _build_cuad(n_contracts: int = _CUAD_SAMPLE_SIZE) -> ContractSet:
                 and present >= _CUAD_MIN_CLAUSES):
             eligible.append(index)
 
-    # At most two of any one agreement type, so the sample is not all
-    # distributor agreements; then a seeded draw for the rest.
-    by_type: dict[str, list[int]] = {}
-    for index in eligible:
-        by_type.setdefault(_cuad_contract_type(raw[index]["title"]), []).append(index)
-    spread = [i for indexes in by_type.values() for i in indexes[:2]]
+    if per_type is None:
+        pool = eligible
+    else:
+        # At most ``per_type`` of any one agreement type, so the sample is not
+        # all distributor agreements.
+        by_type: dict[str, list[int]] = {}
+        for index in eligible:
+            by_type.setdefault(_cuad_contract_type(raw[index]["title"]), []).append(index)
+        pool = [i for indexes in by_type.values() for i in indexes[:per_type]]
+
     rng = np.random.default_rng(_CUAD_SEED)
-    chosen = sorted(rng.choice(sorted(spread), size=min(n_contracts, len(spread)), replace=False))
+    chosen = sorted(rng.choice(sorted(pool), size=min(n_contracts, len(pool)), replace=False))
 
     contracts, spans = [], []
     for contract_id, index in enumerate(chosen):
@@ -463,8 +472,13 @@ def load_cuad(full: bool = False) -> ContractSet:
     """Contracts with lawyer-annotated clause spans.
 
     Defaults to the sample committed under ``data/`` so a notebook runs before
-    anything downloads. ``full=True`` rebuilds from all 510 contracts (a 40 MB
-    download); expect a much longer indexing step.
+    anything downloads.
+
+    ``full=True`` downloads CUAD (40 MB) and returns every contract that is long
+    enough to need retrieval and annotated richly enough to ask questions of --
+    around 120 of the 510, without the per-type cap that shapes the committed
+    sample. Use it when the sample is too small to measure something, which is
+    the usual reason to want it.
     """
     names = ("cuad_contracts.jsonl", "cuad_categories.tsv", "cuad_spans.jsonl")
     committed = [_committed(name) for name in names]
@@ -474,4 +488,6 @@ def load_cuad(full: bool = False) -> ContractSet:
             categories=pd.read_csv(committed[1], sep="\t"),
             spans=pd.read_json(committed[2], lines=True),
         )
-    return _build_cuad(n_contracts=510 if full else _CUAD_SAMPLE_SIZE)
+    if full:
+        return _build_cuad(n_contracts=510, per_type=None)
+    return _build_cuad(n_contracts=_CUAD_SAMPLE_SIZE)

@@ -55,6 +55,7 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-16 | `flows/01` RAG you can trust | The thesis in full: a demo that works, then 820 judged questions. |
 | 2026-09-16 | `data-model/01` documents that learn | Extract, attach (embedded *and* referenced), query with SQL++. |
 | 2026-09-16 | `data-model/02` adding retrieval | Chunks as derived documents; what a search index's inability to join forces. |
+| 2026-09-17 | `enrich/02` scoring the extraction | Closes the gap `data-model/01` left. Four fields, four scoring rules, and two self-checks that both fall short. |
 
 ### What the retrieval split taught
 
@@ -72,16 +73,12 @@ would leave a build with no point and a test with no setup.
 
 Nothing is scheduled. In rough order of value:
 
-1. **`enrich/02` — scoring the extraction.** `data-model/01` extracts contract terms and never
-   checks them, which is uncomfortable in a repo about measuring things. CUAD ships
-   lawyer-written spans for those exact fields, so `governing_law` is checkable rather than a
-   vibe. Cheap to build — the corpus, the spans and the harness all exist.
-2. **`retrieval/03` — retrieve wide, rerank narrow.** The most manager-legible result available
+1. **`retrieval/03` — retrieve wide, rerank narrow.** The most manager-legible result available
    ("same accuracy, a fraction of the cost"), and `retrieval/02` already establishes the recall
    ceiling that makes the argument.
-3. **`flows/02` — chat with memory.** Working vs. durable memory, recall over past turns, what
+2. **`flows/02` — chat with memory.** Working vs. durable memory, recall over past turns, what
    to forget. Needs a conversation corpus, which is the usual blocker.
-4. **`data-model/03` — schema evolution.** Re-extract with a better prompt; the interesting
+3. **`data-model/03` — schema evolution.** Re-extract with a better prompt; the interesting
    question is which documents *changed*, which is a diff rather than a rebuild. `extracted_at`
    is already on every derived document for this.
 
@@ -111,7 +108,7 @@ Nothing is scheduled. In rough order of value:
 
 | Idea | Note |
 | --- | --- |
-| Scoring the extraction | See Next up. |
+| Scoring the extraction | Shipped as `enrich/02`. |
 | Language normalisation | Units, sizes, colours, brand variants — unglamorous and extremely real. |
 | Translation / multilingual retrieval | **Blocked on a corpus with a usable licence.** See warnings. |
 | Enrichment quality gates | When to accept the model's answer and when to route to a human. |
@@ -397,5 +394,9 @@ diagnostic misleading in the exact case it exists for.
   notebook reporting recall must report what was achievable.
 - **Does `agentc` merit a notebook**, or a section inside chat-with-memory? Unanswerable until
   its current API is read.
-- **Nothing scores the extraction in `data-model/01`.** A repo about measuring things currently
-  ships an unmeasured enrichment. `enrich/02` is the fix and it is first in Next up.
+- **A second model as a quality signal.** `enrich/02` shows two prompts to *one* model mostly
+  agree, because they share its blind spots — the flag fires on 18 of 241 extractions and catches
+  5 of 21 errors. Two different models disagreeing should be a stronger signal, and `cbnb.llm`
+  already points at either. Worth measuring before believing.
+- **`parties` is the weakest extracted field at 80%**, which nobody would have guessed. Whatever
+  makes multi-value extraction harder than single-value extraction is unexamined.
