@@ -335,6 +335,14 @@ open them; everyone else scrolls past.
 carries the formula in its docstring, and the notebook states it next to the number. Relevance
 mapping — how WANDS' Exact / Partial / Irrelevant become gains — is never plumbing.
 
+**Keep *Where to take this* short.** At most five bullets, two or three lines each. The section
+exists to leave a reader with somewhere to go, not to prove the author thought of everything, and
+every extra suggestion competes with the notebook's one argument for the attention left at the
+end. An idea that needs a paragraph is a backlog entry in this file, with a sentence in the
+notebook pointing at the idea rather than explaining it. Current lengths, 2026-09-17: three to
+six bullets, 154–402 words; `enrich/01` (six) and `data-model/01` (402 words) are the ones to cut
+first.
+
 ### Proposed, not built
 
 Honest about the difference:
@@ -499,11 +507,17 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
 
 ## Still open
 
-- **`enrich/01` still classifies from a bare product name.** The committed WANDS samples now
-  carry `product_features` (600 characters, ~1.1 MB compressed), and `retrieval/03` measured what
-  that text is worth to a *reranker*: nDCG@10 0.771 → 0.828. Nobody has measured what it is worth
-  to the *classifier*, which invents a category path from a name and a class. Expect it to move
-  the headline 48.7% → 71.3%, so it needs a re-ship and a prose pass, not a one-line change.
+- **`enrich/01` classifies from a bare product name, and that flatters it.** Measured
+  2026-09-17 on its own 150-product sample, outside the notebook: adding `product_features` to
+  the prompt moves exact-path accuracy 24.0% → 28.0% and department 71.3% → 72.7%. The larger
+  effect is on the *baseline* it is compared against — embedding title plus specs, no LLM at
+  all, lifts department accuracy 48.7% → 61.3% while *dropping* exact path 18.0% → 14.7%. So
+  part of the headline gap is the title being thin rather than the hallucination step working.
+  Left as a suggestion in the notebook's *Where to take this* rather than re-shipped, because
+  the fair comparison is a 2×2 and a rewrite of the argument.
+- **`enrich/01`'s stored numbers predate the current model.** The same title-only pipeline
+  scored 24.0% exact in that side experiment against 28.7% stored, with nothing changed but the
+  model `.env` points at. Any re-ship moves the headline whether or not features are added.
 - **Description, ratings and reviews are still dropped.** `product_description` (86% present),
   `rating_count`, `average_rating` and `review_count` are in WANDS upstream and not in `data/`.
   Features beat description when measured together, so this is not obviously worth the size; the
