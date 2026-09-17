@@ -417,10 +417,22 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
   the base image, and the docs' "choose `.venv`" is easy to miss. Candidate: set
   `python.defaultInterpreterPath` to `${containerWorkspaceFolder}/.venv/bin/python` so it is
   preselected.
-- **NanoGPT may be flagging the key from codespace IPs.** Unverified — datacenter addresses are a
-  common trigger for provider abuse checks. Nothing in the repo can fix that, but the readiness
-  failure could say it, and `docs/codespaces.md` could suggest another provider if calls are
-  rejected there but work locally.
+- **NanoGPT flags the key from codespace IPs.** `00_check_setup` reported the key rejected in a
+  codespace while the same key works locally. Datacenter addresses are a common trigger for
+  provider abuse checks. Nothing in the repo can fix that, but the readiness failure could say
+  it, and `docs/codespaces.md` could suggest another provider if calls are rejected there but
+  work locally.
+- **`00_check_setup` took a patient technical reader.** Fixed: both results are now coloured
+  panels (`cbnb/readout.py`, no dependencies, plain-text fallback), headed by the verdict —
+  "You can run 3 of 7 notebooks" — and the one fix that unlocks the most.
+
+### Found by the new readout
+
+- **It calls `data-model/02` ready when `01` can't run.** `02` reads what `01` wrote, and
+  nothing declares that, so with `llm` blocked the panel offers a notebook that will fail.
+  Needs a way to declare notebook-to-notebook order, which `inventory` doesn't have.
+- **Titles disagree.** `retrieval/02` is "Recall, precision, and the price of a filter" in the
+  notebook and "Which parts of that were worth it?" in the README.
 
 ## Still open
 

@@ -30,10 +30,11 @@ _LAZY = {
     "eval": "cbnb.eval",
     "readiness": "cbnb.readiness",
     "inventory": "cbnb.inventory",
+    "readout": "cbnb.readout",
 }
 
 #: Names that resolve to the module itself rather than an attribute of it.
-_LAZY_MODULES = {"datasets", "eval", "readiness", "inventory"}
+_LAZY_MODULES = {"datasets", "eval", "readiness", "inventory", "readout"}
 
 __all__ = ["bootstrap", "in_colab", "repo_root", "__version__", *_LAZY]
 
