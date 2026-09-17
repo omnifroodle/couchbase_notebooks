@@ -387,6 +387,41 @@ covers — the first thing to check when a filter returns zero rows. It reports 
 versus `text (en)`, because a keyword field *is* type `text` and hiding the analyzer made the
 diagnostic misleading in the exact case it exists for.
 
+## Codespaces friction
+
+Found reviewing the notebooks in a fresh codespace, 2026-09-17. Getting to a running notebook
+currently takes knowledge a stranger doesn't have. Causes below are suspected, not confirmed.
+
+- **Slow first start.** Measured from one creation log: **3m26s** before VS Code gets the
+  codespace, then extension installs on top.
+
+  | Phase | Time |
+  | --- | --- |
+  | Pull `devcontainers/python:1-3.11-bookworm` (download ~5s, extracting ~60s) | 67s |
+  | `post-create.sh`: venv, CPU PyTorch, `.[all]` | ~130s |
+  | Embedding model download, pre-commit hook | ~6s |
+
+  A pre-cached image (GitHub's `universal`) addresses the smaller third at best, and it ships
+  several Python runtimes and conda, which makes the kernel problem below worse unless the
+  interpreter is pinned. **Prebuilds** remove both phases, at a storage cost billed to the repo
+  owner; a published image with the environment baked in does the same without prebuild
+  quotas. Cheaper wins to try first: `uv` instead of `pip` for the install, and questioning
+  whether a codespace needs `.[all]` up front.
+- **The notebook opens as raw JSON.** `openFiles` opens `00_check_setup.ipynb` before the
+  Jupyter extension is active, and possibly before the folder is trusted. The creation log ends
+  at "Finished configuring" with no extension installs in it, so the extensions go in *after*
+  the file is already open — consistent with this, not proof of it. Candidates: set
+  `workbench.editorAssociations` for `*.ipynb` in the devcontainer's VS Code settings, and/or
+  open the README first and link to the notebook from it.
+- **Kernel choice is a guess.** The picker offers `.venv` alongside several system Pythons from
+  the base image, and the docs' "choose `.venv`" is easy to miss. Candidate: set
+  `python.defaultInterpreterPath` to `${containerWorkspaceFolder}/.venv/bin/python` so it is
+  preselected.
+- **NanoGPT may be flagging the key from codespace IPs.** Unverified — datacenter addresses are a
+  common trigger for provider abuse checks. Nothing in the repo can fix that, but the readiness
+  failure could say it, and `docs/codespaces.md` could suggest another provider if calls are
+  rejected there but work locally.
+
 ## Still open
 
 - **A recall figure is meaningless without its ceiling.** WANDS judges a median of 125 relevant
