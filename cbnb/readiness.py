@@ -213,14 +213,23 @@ def _local_embeddings_deep() -> tuple[bool, str, str]:
     return True, f"model loaded, {embedder.dims} dimensions", ""
 
 
+def _api_embedding_model() -> str:
+    """The model the api backend would use: CBNB_EMBEDDING_MODEL, else the provider's."""
+    cfg = _settings()
+    from cbnb.llm import PROVIDERS
+
+    return cfg.embedding_model or PROVIDERS[cfg.llm_provider].default_embedding_model or ""
+
+
 def _api_embeddings_shallow() -> tuple[bool, str, str]:
     cfg = _settings()
     from cbnb.llm import PROVIDERS
 
     provider = PROVIDERS[cfg.llm_provider]
-    if not provider.default_embedding_model:
-        return False, f"{provider.label} has no embedding endpoint", (
-            "set CBNB_EMBEDDING_BACKEND=local, or switch provider"
+    if not _api_embedding_model():
+        return False, f"no embedding model known for {provider.label}", (
+            "set CBNB_EMBEDDING_MODEL to one the endpoint serves, or use "
+            "CBNB_EMBEDDING_BACKEND=local"
         )
     return _llm_shallow()
 
@@ -233,7 +242,8 @@ def _api_embeddings_deep() -> tuple[bool, str, str]:
     from cbnb.llm import LLM, LLMAuthenticationError
 
     try:
-        vectors = LLM(cfg.llm_provider).embed(["a coffee table"])
+        model = _api_embedding_model()
+        vectors = LLM(cfg.llm_provider).embed(["a coffee table"], model=model)
     except LLMAuthenticationError as exc:
         return (False, *_split_auth_help(exc))
     except Exception as exc:  # noqa: BLE001
@@ -241,7 +251,7 @@ def _api_embeddings_deep() -> tuple[bool, str, str]:
             "check the provider offers embeddings on your plan, and that "
             f"{cfg.llm_provider} serves the embedding model you asked for"
         )
-    return True, f"{cfg.llm_provider} returned {len(vectors[0])} dimensions", ""
+    return True, f"{cfg.llm_provider} / {model} returned {len(vectors[0])} dimensions", ""
 
 
 # --- everything else -------------------------------------------------------
