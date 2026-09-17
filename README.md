@@ -27,6 +27,7 @@ that notebook, so the table stays honest.
 | **[Can I run these?](notebooks/00_check_setup.ipynb)** | — | **Start here.** Checks your credentials for real — a live connection, a live model call — then tells you which notebook below you can run right now, and what to fix if you can't. | — |
 | [Building hybrid search on Couchbase](notebooks/retrieval/01_building_hybrid_search.ipynb) | retrieval | The mechanics. Vector, then keyword, then both in one request, then filtered — each step a working search over 6,482 real products. Analysers, prefilters, one index. No LLM. | Two queries, opposite winners — which is why `02` exists |
 | [Which parts of that were worth it?](notebooks/retrieval/02_which_parts_helped.ipynb) | retrieval | Takes those four searches and scores them against 7,000 human relevance judgements with `trec_eval`. No LLM. | No winner: vector and the hybrids tie on nDCG@10 (~0.78 vs BM25's 0.71) — which leads changes between runs — and the hybrids lead recall@50 |
+| [Retrieve wide, rerank narrow](notebooks/retrieval/03_retrieve_wide_rerank_narrow.ipynb) | retrieval | A cross-encoder re-reads the 50 candidates a hybrid search returned. Recall cannot move; ordering can. No LLM. | Reranking the product name alone does nothing; adding its category path lifts nDCG@10 0.769 → 0.794 |
 | [Your RAG demo works. Now prove it.](notebooks/flows/01_rag_that_you_can_trust.ipynb) | flows | Build RAG over 20 real contracts, answer one query beautifully, then ask 820 questions a lawyer answered first — and split the failures into retrieval's fault and the model's. | 64.4% correct, inventing answers for 23 of 93 unanswerable questions; one prompt paragraph → 70.6% |
 | [Documents that learn](notebooks/data-model/01_documents_that_learn.ipynb) | data-model | Contracts arrive as prose. A model reads their terms; the terms go back on — embedded, and again as referenced derived documents — and SQL++ queries them. No migration, no second store. | Prose becomes `WHERE governing_law = "California" AND agreement_date > "2015"` |
 | [Adding retrieval to enriched documents](notebooks/data-model/02_adding_retrieval.ipynb) → *needs `01` first* | data-model | Chunks are derived documents, and a search index cannot join them to their parent. Copy the filterable fields down, or filter afterwards and lose results — both, measured. | A filter on an unindexed field returns 0 hits and no error |
@@ -48,9 +49,9 @@ What's coming, and why things are arranged this way: [`docs/roadmap.md`](docs/ro
 [`docs/capella-setup.md`](docs/capella-setup.md).
 
 **2. A model API key.** Anything that speaks the OpenAI API — OpenAI, NanoGPT, OpenRouter,
-Groq, Anthropic's compatibility endpoint, or Ollama on your own machine. Three of the
-notebooks need no model at all — both `retrieval/` ones and `data-model/02`, which reads
-what `01` already extracted.
+Groq, Anthropic's compatibility endpoint, or Ollama on your own machine. Four of the
+notebooks need no model at all — all three `retrieval/` ones and `data-model/02`, which
+reads what `01` already extracted.
 
 **3. Run one.**
 
@@ -98,6 +99,7 @@ The shared helper package, so the notebooks show the technique and not the plumb
 | `eval.py` | Retrieval metrics via `ir-measures`/`trec_eval`, plus the judgement calls that are ours. |
 | `readiness.py` | What this environment can actually do. Live checks, and what to do when one fails. |
 | `inventory.py` | What each notebook asks for, read from the notebook files themselves. |
+| `rerank.py` | A cross-encoder over a shortlist a search returned. Not to be confused with Couchbase's `rerank` flag, which re-scores quantised vectors. |
 | `readout.py` | Coloured verdict panels — ready/blocked, pass/fail — with a plain-text fallback. Used by `bootstrap` and `00_check_setup`. |
 | `nbstamp.py` | Ties stored outputs to the code that produced them, so stale outputs fail a check. |
 | `review.py` | Optional. Asks a model which prose a re-run invalidated. Advisory, never published. |

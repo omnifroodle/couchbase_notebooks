@@ -31,6 +31,7 @@ _LAZY = {
     "readiness": "cbnb.readiness",
     "inventory": "cbnb.inventory",
     "readout": "cbnb.readout",
+    "Reranker": "cbnb.rerank",
 }
 
 #: Names that resolve to the module itself rather than an attribute of it.

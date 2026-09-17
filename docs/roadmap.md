@@ -56,6 +56,7 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-16 | `data-model/01` documents that learn | Extract, attach (embedded *and* referenced), query with SQL++. |
 | 2026-09-16 | `data-model/02` adding retrieval | Chunks as derived documents; what a search index's inability to join forces. |
 | 2026-09-17 | `enrich/02` scoring the extraction | Closes the gap `data-model/01` left. Four fields, four scoring rules, and two self-checks that both fall short. |
+| 2026-09-17 | `retrieval/03` retrieve wide, rerank narrow | A cross-encoder over the shortlist. The first attempt failed — see below — and that became the notebook's argument. |
 
 ### What the retrieval split taught
 
@@ -73,25 +74,17 @@ would leave a build with no point and a test with no setup.
 
 Nothing is scheduled. In rough order of value:
 
-1. **`retrieval/03` — retrieve wide, rerank narrow.** The most manager-legible result available
-   ("same accuracy, a fraction of the cost"), and `retrieval/02` already establishes the recall
-   ceiling that makes the argument. It also answers the question `02` leaves hanging: a filter
-   and a reranker are two bets on the same uncertainty, and only one is recoverable. A filter
-   removes a product for good; a reranker that misjudges one merely ranks it badly. Score both
-   over the same 40 queries and that stops being a claim. Read
-   [Reranking means a second model](#reranking-means-a-second-model-nothing-else-gets-the-word)
-   before writing a word of it.
-2. **`flows/03` — agentic search.** Search, judge the results, search again. The sceptical
+1. **`flows/03` — agentic search.** Search, judge the results, search again. The sceptical
    framing is the useful one: an agent loop is a bet that fixed classifiers and fixed `k` are
    too rigid, and it is expensive, so it has to beat single-shot retrieval and rerank on the
    same judgements to earn its place. Lands in `flows/` for the same reason agent memory does —
-   the loop is the subject, not the recall mechanics. **Blocked on `retrieval/03`**, which supplies the
-   baseline, and it needs evaluation layers 4 (trajectory) and 5 (stability), neither of which
+   the loop is the subject, not the recall mechanics. Its baseline now exists (`retrieval/03`),
+   and it needs evaluation layers 4 (trajectory) and 5 (stability), neither of which
    any notebook has yet. Plain vector search already drifts ~0.005 nDCG between runs; an agent
    deciding when to stop will drift further, so one run of it proves nothing.
-3. **`flows/02` — chat with memory.** Working vs. durable memory, recall over past turns, what
+2. **`flows/02` — chat with memory.** Working vs. durable memory, recall over past turns, what
    to forget. Needs a conversation corpus, which is the usual blocker.
-4. **`data-model/03` — schema evolution.** Re-extract with a better prompt; the interesting
+3. **`data-model/03` — schema evolution.** Re-extract with a better prompt; the interesting
    question is which documents *changed*, which is a diff rather than a rebuild. `extracted_at`
    is already on every derived document for this.
 
@@ -101,7 +94,7 @@ Nothing is scheduled. In rough order of value:
 
 | Idea | Note |
 | --- | --- |
-| Retrieve wide, rerank narrow | See Next up. |
+| Retrieve wide, rerank narrow | Shipped as `retrieval/03`. |
 | Freshness — a document changes, its embedding is now a lie | The most Couchbase-native story after single-write, and almost nobody demos it. Eventing is the natural trigger but is **paid-tier on Capella**, so a runnable version needs an SDK-side `needs_embedding` flag. |
 | SQL++ and vector search in one query | `data-model/01` uses SQL++ and `/02` uses filtered vector search, but nothing yet joins vector hits to structured data in a single statement. A real differentiator against standalone vector stores. |
 | Cost and latency engineering | Quantisation, dimension choice, `vector_index_optimized_for`. |
@@ -497,6 +490,14 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
 
 ## Still open
 
+- **The corpus is thinner than the dataset.** `retrieval/03` found that a cross-encoder reading
+  only `product_name + product_class` reranks no better than Couchbase's own ordering, and adding
+  `category_path` was worth +0.025 nDCG@10. WANDS upstream also ships `product_description`,
+  `product_features`, `rating_count`, `average_rating` and `review_count`, and the committed
+  samples in `data/` keep **none** of them. Everything in this repo — embeddings, BM25 text,
+  `enrich/01`'s classification prompt, that reranker — sees a product name and a class. Adding
+  description and features would change results across three notebooks, so it is a decision, not
+  a chore: bigger committed samples, re-shipped notebooks, and every number moves.
 - **Vector scores drift between runs.** Three runs of `retrieval/02` against one index gave
   vector nDCG@10 of 0.776, 0.779 and 0.781, and flipped which strategy led that column. BM25 is
   identical every time, so it is the approximate nearest-neighbour search. The notebook's prose
