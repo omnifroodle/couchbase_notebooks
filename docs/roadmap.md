@@ -258,12 +258,17 @@ this flag calls reranking is not what the term means elsewhere. Cost: QPS, and i
 at 8 bits per dimension. **It searches the quantised vectors by default**, which is what the
 flag is there to walk back.
 
-**These notebooks are not affected, and any notebook touching this must say so.** They use a
-**Search-service** index with `vector_index_optimized_for: "recall"`, where quantisation is
-confined to the `memory-efficient` option (7.6.4+, inverted file with scalar quantisation).
-Different service, different index, different defaults. Verify this on a live cluster before
-publishing it — the docs do not state the Search service's default precision outright, and this
-is exactly the kind of claim that is embarrassing to get wrong.
+**These notebooks are not affected — measured, 2026-09-17, not inferred.** They use a
+**Search-service** index with `vector_index_optimized_for: "recall"`, where the docs confine
+quantisation to the `memory-efficient` option (7.6.4+, inverted file with scalar quantisation).
+On a live cluster, `products_hybrid` reports no quantisation setting at all, and its returned
+scores match a float32 dot product computed locally to ~1e-7 — float32 rounding. SQ8 would err
+around 1e-3. So scoring there is full precision.
+
+**That is about scoring, not candidate selection.** Exact arithmetic on an approximately chosen
+candidate set is still approximate retrieval, and the graph traversal that picks the candidates
+is the likelier source of `retrieval/02`'s run-to-run drift. Do not let one get written as
+evidence for the other.
 
 **Capella's Model Service is Enterprise Support only**, so a hosted reranking model — if it
 offers one, which the docs do not say — is an aside, not a dependency.
@@ -498,6 +503,9 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
   now states what holds across runs rather than one run's decimals, but nothing *reports* the
   spread: `cbnb.eval` could score repeated runs and show a range, which is Evaluation layer 5
   (stability) arriving early. Until then, any claim resting on a gap of about 0.01 is suspect.
+  Not quantisation — the Search index scores in full precision (see
+  [Reranking means a second model](#reranking-means-a-second-model-nothing-else-gets-the-word));
+  approximate candidate selection is the open suspect, and nobody has confirmed it.
 - **A recall figure is meaningless without its ceiling.** WANDS judges a median of 125 relevant
   products per query, so the best possible R@50 is 0.462 and the strategies reach 87% of it. Any
   notebook reporting recall must report what was achievable.
