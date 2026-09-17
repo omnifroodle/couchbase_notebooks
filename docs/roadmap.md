@@ -80,12 +80,21 @@ See [Readiness](#readiness) for the mechanism — the important property is that
 generated from what each notebook declares, so adding a notebook never means editing this
 one.
 
-**`retrieval/01` — Hybrid and filtered retrieval, measured.** *Built 2026-09-16.*
-WANDS ships 480 queries and 233k relevance judgements that we currently ignore. Compare
-BM25, vector, hybrid, and filtered-hybrid over the same queries with NDCG@10 and recall@50.
-No new dataset, no new LLM spend. Two reasons it goes first: it is the notebook retrieval
-people will judge the whole repo by, and it forces `cbnb.eval` into existence — which
-everything after it needs in order to make an honest claim.
+**`retrieval/01` and `/02` — build it, then test it.** *Built 2026-09-16, split 2026-09-16.*
+Originally one notebook, which was a mistake worth recording: it benchmarked four retrieval
+strategies and therefore assumed you already knew how to build them, so the repo had no answer
+to *"how do I do hybrid search on Couchbase?"* — the question a practitioner actually arrives
+with.
+
+Now `01` is the build: vector, keyword, both in one request, then filtered, with the analyser
+and prefilter details that bite people. It measures nothing, and ends by showing two queries
+that pick opposite winners — so the reader reaches `02` wanting the answer rather than being
+told they should care. `02` is the measurement, reusing the index `01` builds.
+
+**The general rule this suggests:** a notebook that evaluates something needs a notebook that
+builds it, and they are usually not the same notebook. `flows/01` is the deliberate exception —
+its build is thin and its argument *is* the contrast between the demo and the measurement, so
+splitting it would leave a build with no point and a test with no setup.
 
 **`flows/01` — RAG you can trust.** *Built 2026-09-16.*
 Deliberately stresses what 01 and 02 did not: a prose corpus, chunking and parent/child
