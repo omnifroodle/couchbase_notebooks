@@ -143,7 +143,7 @@ Ordered roughly by value within each track. Nothing here is scheduled.
 
 | Idea | Note |
 | --- | --- |
-| Ingest unstructured, get structured + vectors in one write | The flagship. |
+| Ingest unstructured, get structured + vectors in one write | `01` shipped: extract, attach, query with SQL++. `02` adds chunks and vectors. |
 | Parent/child chunk modelling | Where chunks live relative to their source document; subdocument operations. |
 | Schema evolution | Re-extracting when the extraction prompt improves, without a migration. |
 
@@ -469,6 +469,27 @@ actually covers, as `{field: type}` — the first thing to check when a filter r
 An identifier is still better as a keyword than a number, so `flows/01` keeps its
 `contract_key` filter; the gap mattered for `data-model/`, which filters on extracted dates
 and amounts.
+
+## Conventions learned the hard way
+
+**Introduce the well-known concept in Couchbase's terms first, then build on it.** Matt's rule,
+and it is why `retrieval` split into build-then-test and why `data-model/01` stops before
+vectors. Extraction with an LLM needs no selling; what happens to the *document* afterwards
+does. A notebook that opens on the novel technique skips the audience that came for the
+mechanics.
+
+**Start simple and build across a series.** The first draft of `data-model/01` went from raw
+text to a four-field-type polyglot query in one notebook. Split at the natural seam: `01` is
+the document and SQL++, `02` is chunks and vectors.
+
+**Use the real term.** "Decoration" is not a thing; the pair is **embedding vs referencing**,
+and a separate document holding attributes derived from a source is a **derived document**
+(Data Vault would call it a satellite). Borrowing a plausible-sounding word from conversation
+without checking is how a repo teaches people the wrong vocabulary.
+
+**Derived documents go in their own collection.** Putting them beside their sources means every
+query needs a `type` discriminator, and the first draft of `data-model/01` duly returned
+`COUNT(*) = 40` for 20 contracts with every governing-law tally doubled. Collections are cheap.
 
 ## Still open
 
