@@ -54,6 +54,12 @@ them to prove they work and then clears what they printed, and the checker fails
 if outputs ever reappear. Tell the reader in the notebook that it is empty by
 design.
 
+**Verdicts go in a `cbnb.readout.Panel`.** Anything that reports ready/blocked or
+pass/fail — a checklist, a gate, a readiness result — renders as a coloured panel with the
+conclusion as its headline, rather than lines of `print`. `cbnb.bootstrap` and
+`00_check_setup` both do. Measurements and model output are not verdicts; leave them as
+tables and text.
+
 **Keep the technique in the notebook and the plumbing in `cbnb`.** If a cell is
 twenty lines of index configuration, move it into `cbnb/couchbase_io.py` and
 call it. The notebook should read as an argument, not a script.

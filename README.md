@@ -98,7 +98,7 @@ The shared helper package, so the notebooks show the technique and not the plumb
 | `eval.py` | Retrieval metrics via `ir-measures`/`trec_eval`, plus the judgement calls that are ours. |
 | `readiness.py` | What this environment can actually do. Live checks, and what to do when one fails. |
 | `inventory.py` | What each notebook asks for, read from the notebook files themselves. |
-| `readout.py` | Coloured status panels for notebook output, with a plain-text fallback. Knows nothing about what the rows mean. |
+| `readout.py` | Coloured verdict panels — ready/blocked, pass/fail — with a plain-text fallback. Used by `bootstrap` and `00_check_setup`. |
 | `nbstamp.py` | Ties stored outputs to the code that produced them, so stale outputs fail a check. |
 | `review.py` | Optional. Asks a model which prose a re-run invalidated. Advisory, never published. |
 

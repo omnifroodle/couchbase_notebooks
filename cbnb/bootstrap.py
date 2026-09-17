@@ -228,21 +228,34 @@ def bootstrap(
 
     cfg = load_settings()
 
-    # After Colab secrets, or this reports settings that are about to arrive.
-    if requires:
-        from cbnb.readiness import require
+    if in_colab():
+        where = "Colab"
+    else:
+        where = "Codespaces" if in_codespaces() else "local"
+        where += ", autoreload on" if autoreload else ""
+    summary = f"{where}. {cfg.summary()}"
+    if from_colab:
+        summary += f" | from Colab secrets: {', '.join(from_colab)}"
 
-        require(requires)
+    from cbnb.readiness import NotReady, check
+    from cbnb.readout import Item, Panel
+
+    # After Colab secrets, or this reports settings that are about to arrive.
+    # Shallow checks: presence, not validity -- 00_check_setup does the live ones.
+    results = [check(name) for name in requires]
+    failed = [r for r in results if not r.ok]
+    if failed:
+        # Show every blocker at once, then stop the notebook on the first.
+        Panel(
+            f"Not ready: {', '.join(r.name for r in failed)}",
+            [("Needs", [Item("ok" if r.ok else "blocked", r.name, r.detail, r.fix)
+                        for r in results])],
+            summary=summary,
+            status="blocked",
+        ).show()
+        raise NotReady(failed[0].name, failed[0].detail, failed[0].fix)
 
     if not quiet:
-        if in_colab():
-            where = "Colab"
-        else:
-            where = "Codespaces" if in_codespaces() else "local"
-            where += ", autoreload on" if autoreload else ""
-        print(f"cbnb ready ({where}). {cfg.summary()}")
-        if from_colab:
-            print(f"Loaded from Colab secrets: {', '.join(from_colab)}")
-        if requires:
-            print(f"Ready for: {', '.join(requires)}")
+        headline = f"Ready for {' · '.join(requires)}" if requires else "cbnb ready"
+        Panel(headline, summary=summary, status="ok").show()
     return cfg

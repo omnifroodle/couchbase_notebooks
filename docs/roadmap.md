@@ -431,6 +431,10 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
 - **It calls `data-model/02` ready when `01` can't run.** `02` reads what `01` wrote, and
   nothing declares that, so with `llm` blocked the panel offers a notebook that will fail.
   Needs a way to declare notebook-to-notebook order, which `inventory` doesn't have.
+- **Stored first-cell outputs predate the panel.** `bootstrap` now draws a panel, but the
+  seven shipped notebooks still hold the old two printed lines until each is re-shipped. The
+  ship stamp hashes notebook code, not `cbnb`, so nothing flags it. When the first one is
+  re-shipped, check GitHub's rendering keeps the panel's inline styles — unverified.
 - **Titles disagree.** `retrieval/02` is "Recall, precision, and the price of a filter" in the
   notebook and "Which parts of that were worth it?" in the README.
 

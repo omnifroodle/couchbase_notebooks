@@ -72,6 +72,23 @@ class Panel:
     def __repr__(self) -> str:
         return str(self)
 
+    def show(self) -> None:
+        """Display now, from inside a function: HTML in a notebook, text elsewhere.
+
+        A panel left as a cell's last expression displays itself; this is for
+        code that is not in that position, such as :func:`cbnb.bootstrap`.
+        """
+        try:
+            from IPython import get_ipython
+            from IPython.display import display
+        except ImportError:
+            print(self)
+            return
+        if get_ipython() is None:
+            print(self)
+        else:
+            display(self)
+
     # --- html ---------------------------------------------------------------
 
     def _repr_html_(self) -> str:

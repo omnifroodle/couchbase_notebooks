@@ -82,6 +82,25 @@ in a notebook that otherwise commits everything. For output worth seeing live an
 publish — `cbnb.review.commentary`, which is unreviewed, differs every run, and is not one
 of the notebook's claims.
 
+## Verdicts go in a panel, not a print
+
+Output whose job is a verdict — ready or blocked, pass or fail, a checklist of what is
+missing — uses `cbnb.readout.Panel`, not `print`. A reader should get the answer from the
+colour and the headline, without reading every line. Put the conclusion in the headline
+("You can run 3 of 7 notebooks"), and the fix under the row it fixes.
+
+```python
+from cbnb.readout import Item, Panel
+
+Panel("2 of 3 checks passed",
+      [("Checks", [Item("ok", "index built"), Item("blocked", "llm", detail, fix)])],
+      status="blocked")        # last expression in a cell; call .show() anywhere else
+```
+
+Only verdicts. Measurements stay DataFrames, model answers stay text — a coloured pill on a
+number implies a threshold nobody chose. `readout` knows nothing about what its rows mean, so
+it can be used from either side of the readiness/inventory boundary without joining them.
+
 ## Before committing
 
 ```bash
