@@ -450,14 +450,28 @@ BEIR's zero-shot framing. Contracts are not standard retrieval training data. Th
 one aside in a notebook and is *not* the reason for the choice — these notebooks teach
 approaches, they do not claim a recall breakthrough.
 
+## Fixed along the way
+
+**Numeric and datetime index fields.** *2026-09-16.* `vector_index_definition` emitted only
+text and keyword fields, so `NumericRangeQuery` and `DateRangeQuery` had nothing to match —
+and a range query against a field absent from the mapping matches **nothing and raises
+nothing**. In `flows/01` that surfaced as empty retrieval and a model reporting "the excerpts
+are empty", which reads as a bad model rather than a bad filter.
+
+`numeric_fields=` and `datetime_fields=` now exist and are verified against a live cluster
+(filtering chunks by `contract_id` and by character offset), including that re-running does
+*not* force an index rebuild.
+
+The silent half needed its own answer, because the fix does not stop anyone filtering on a
+field they forgot to declare. `indexed_fields(cluster, ...)` reads back what a live index
+actually covers, as `{field: type}` — the first thing to check when a filter returns zero rows.
+
+An identifier is still better as a keyword than a number, so `flows/01` keeps its
+`contract_key` filter; the gap mattered for `data-model/`, which filters on extracted dates
+and amounts.
+
 ## Still open
 
-- **`vector_index_definition` cannot emit numeric fields.** Only text and keyword. A
-  `NumericRangeQuery` against a field that is not in the mapping matches *nothing* and raises
-  nothing — in `flows/01` that produced empty retrieval and a model politely reporting "the
-  excerpts are empty", which reads as a bad model rather than a bad filter. `data-model/` is
-  heading straight at filtering on extracted dates and amounts, so this needs fixing rather
-  than working around with keyword ids.
 - **A recall figure is meaningless without its ceiling.** WANDS judges a median of 125
   products relevant per query, so the best possible R@50 on this benchmark is 0.462 — the
   strategies reach 87% of that. Any future notebook reporting recall must report what was

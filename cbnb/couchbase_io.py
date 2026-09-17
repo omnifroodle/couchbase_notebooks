@@ -161,13 +161,26 @@ def vector_index_definition(
     dims: int,
     text_fields: Sequence[str] = (),
     keyword_fields: Sequence[str] = (),
+    numeric_fields: Sequence[str] = (),
+    datetime_fields: Sequence[str] = (),
     similarity: str = "dot_product",
 ) -> dict[str, Any]:
     """Build a scope-level Search index definition with one vector field.
 
-    ``text_fields`` are analysed for full-text matching; ``keyword_fields`` are
-    indexed verbatim, which is what you want for filtering and faceting on a
-    category path.
+    Four kinds of field, because the Search service treats them differently:
+
+    * ``text_fields`` are analysed for full-text matching -- split, lowercased
+      and stemmed, so a query word can match part of a value.
+    * ``keyword_fields`` are indexed verbatim as a single term, which is what
+      you want for filtering on a category path or an identifier.
+    * ``numeric_fields`` accept ``NumericRangeQuery`` -- prices, counts, years.
+    * ``datetime_fields`` accept ``DateRangeQuery``.
+
+    Declaring the field is not optional. A range query against a field that is
+    not in the mapping matches **nothing and raises nothing**, which looks like
+    an empty result set rather than a mistake. :func:`indexed_fields` reads back
+    what an index actually covers, for when a filter mysteriously returns zero
+    rows.
     """
     properties: dict[str, Any] = {
         vector_field: {
@@ -201,6 +214,16 @@ def vector_index_definition(
             "fields": [
                 {"name": field, "type": "text", "analyzer": "keyword", "index": True,
                  "store": True, "docvalues": True, "include_in_all": False}
+            ],
+        }
+    for field, kind in [*((f, "number") for f in numeric_fields),
+                        *((f, "datetime") for f in datetime_fields)]:
+        properties[field] = {
+            "enabled": True,
+            "dynamic": False,
+            "fields": [
+                {"name": field, "type": kind, "index": True, "store": True,
+                 "docvalues": True, "include_in_all": False}
             ],
         }
 
@@ -281,6 +304,8 @@ def ensure_vector_index(
     dims: int,
     text_fields: Sequence[str] = (),
     keyword_fields: Sequence[str] = (),
+    numeric_fields: Sequence[str] = (),
+    datetime_fields: Sequence[str] = (),
     similarity: str = "dot_product",
     recreate: bool = False,
 ):
@@ -302,6 +327,8 @@ def ensure_vector_index(
         dims=dims,
         text_fields=text_fields,
         keyword_fields=keyword_fields,
+        numeric_fields=numeric_fields,
+        datetime_fields=datetime_fields,
         similarity=similarity,
     )
 
@@ -402,6 +429,30 @@ def wait_for_index(
         f"({count}/{expected} documents, last status: {status}). "
         f"Check the index in the Capella UI (Data Tools -> Search)."
     )
+
+
+def indexed_fields(cluster, *, bucket_name: str, scope_name: str, index_name: str) -> dict[str, str]:
+    """What a live Search index actually covers, as ``{field: type}``.
+
+    For the failure that produces no error: a ``TermQuery``, ``NumericRangeQuery``
+    or ``DateRangeQuery`` against a field the index does not contain matches
+    nothing and reports nothing, so an empty result looks like "no such
+    documents" rather than "no such field". When a filter returns zero rows,
+    check here first -- a missing name, or a field indexed as ``text`` when the
+    query wants ``number``, explains most of it.
+
+        >>> indexed_fields(cluster, bucket_name=b, scope_name=s, index_name=i)
+        {'embedding': 'vector', 'text': 'text', 'department': 'text', 'year': 'number'}
+    """
+    scope = cluster.bucket(bucket_name).scope(scope_name)
+    existing = scope.search_indexes().get_index(index_name)
+    types = (existing.params or {}).get("mapping", {}).get("types", {})
+    found: dict[str, str] = {}
+    for mapping in types.values():
+        for name, prop in (mapping.get("properties") or {}).items():
+            for field in prop.get("fields") or []:
+                found[field.get("name", name)] = field.get("type", "unknown")
+    return found
 
 
 @dataclass
