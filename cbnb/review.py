@@ -126,6 +126,26 @@ def prose_of(nb: dict[str, Any]) -> str:
     return "\n\n".join(blocks)
 
 
+_ROW = re.compile(r"<tr\b.*?</tr>", re.S | re.I)
+_CELL = re.compile(r"<t[hd]\b.*?</t[hd]>", re.S | re.I)
+
+
+def _table_rows(value: Any) -> str:
+    """An HTML table as ``a | b | c`` lines, or "" if the output holds no table."""
+    if not value:
+        return ""
+    markup = "".join(value) if isinstance(value, list) else str(value)
+    if "<table" not in markup.lower():
+        return ""
+    import html
+
+    lines = []
+    for row in _ROW.findall(markup):
+        cells = [" ".join(html.unescape(_TAG.sub(" ", c)).split()) for c in _CELL.findall(row)]
+        lines.append(" | ".join(cells))
+    return "\n".join(lines)
+
+
 def _render_output(output: dict[str, Any]) -> str:
     """One output as plain text, preferring representations that need no parsing."""
     text = output.get("text", "")
@@ -133,6 +153,12 @@ def _render_output(output: dict[str, Any]) -> str:
         return "".join(text) if isinstance(text, list) else text
 
     data = output.get("data") or {}
+    # A table is read from its HTML, one row per line. pandas' text/plain of a wide
+    # table wraps columns into separate blocks and elides long cells with "...",
+    # and a reviewing model then misreads which value sits at which rank.
+    table = _table_rows(data.get("text/html"))
+    if table:
+        return table
     # pandas emits text/plain alongside text/html; the former needs no stripping,
     # which is the whole reason to prefer it -- except for a styled DataFrame,
     # whose text/plain is a bare object repr and whose table lives only in the
@@ -242,7 +268,10 @@ def check_claims(
             why: str = Field(description="what the outputs show instead, in one sentence")
 
         class _Review(BaseModel):
-            findings: list[_Finding] = Field(default_factory=list)
+            # Required, not defaulted: with a default, a bare "{}" validates as a
+            # clean review, and a model that said nothing reads as one that found
+            # nothing. Required makes it a failed reply, which gets retried.
+            findings: list[_Finding] = Field(description="empty list if nothing is wrong")
 
         # Via load_settings, so .env is read: os.environ alone would miss the
         # configured provider and fall back to openai, then prompt for a key.
