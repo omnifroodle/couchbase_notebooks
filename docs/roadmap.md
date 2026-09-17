@@ -386,6 +386,15 @@ just the tests run.
 
 Settled. Recorded so they do not get re-litigated.
 
+**The indexed text is thin on purpose.** `retrieval/*` indexes `product_name + product_class` and
+nothing else, though the committed sample now carries `product_features` too. Short documents are
+what make the keyword/vector trade-off *visible*: *nautical platters* returning a nautical
+headboard is obvious in a five-word document and invisible in a five-hundred-word one where every
+product mentions everything. Richer text would mask the mechanism these notebooks exist to show.
+Any notebook relying on that must say so rather than let a reader infer that Couchbase can only
+index a title — `retrieval/03` says it in section 2, and uses the full document at rerank time
+through a key lookup.
+
 **Corpora: WANDS and CUAD.** The canonical RAG benchmark is the TREC RAG track over MS MARCO,
 and **MS MARCO is non-commercial research only**. That blocker spreads: SciFact is CC BY-NC,
 NFCorpus and FiQA are non-commercial, and RAGBench's clean CC BY 4.0 tag sits on twelve
@@ -490,14 +499,15 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
 
 ## Still open
 
-- **The corpus is thinner than the dataset.** `retrieval/03` found that a cross-encoder reading
-  only `product_name + product_class` reranks no better than Couchbase's own ordering, and adding
-  `category_path` was worth +0.025 nDCG@10. WANDS upstream also ships `product_description`,
-  `product_features`, `rating_count`, `average_rating` and `review_count`, and the committed
-  samples in `data/` keep **none** of them. Everything in this repo — embeddings, BM25 text,
-  `enrich/01`'s classification prompt, that reranker — sees a product name and a class. Adding
-  description and features would change results across three notebooks, so it is a decision, not
-  a chore: bigger committed samples, re-shipped notebooks, and every number moves.
+- **`enrich/01` still classifies from a bare product name.** The committed WANDS samples now
+  carry `product_features` (600 characters, ~1.1 MB compressed), and `retrieval/03` measured what
+  that text is worth to a *reranker*: nDCG@10 0.771 → 0.828. Nobody has measured what it is worth
+  to the *classifier*, which invents a category path from a name and a class. Expect it to move
+  the headline 48.7% → 71.3%, so it needs a re-ship and a prose pass, not a one-line change.
+- **Description, ratings and reviews are still dropped.** `product_description` (86% present),
+  `rating_count`, `average_rating` and `review_count` are in WANDS upstream and not in `data/`.
+  Features beat description when measured together, so this is not obviously worth the size; the
+  ratings fields are untested as ranking signals.
 - **Vector scores drift between runs.** Three runs of `retrieval/02` against one index gave
   vector nDCG@10 of 0.776, 0.779 and 0.781, and flipped which strategy led that column. BM25 is
   identical every time, so it is the approximate nearest-neighbour search. The notebook's prose

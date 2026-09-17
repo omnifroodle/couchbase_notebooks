@@ -81,13 +81,34 @@ def _committed(filename: str) -> Path | None:
     return path if path.exists() else None
 
 
+#: How much of ``product_features`` the committed samples keep. The field is the
+#: structured spec text ("primarymaterial : brass|boreholediameter:2.12"), present
+#: on every product and averaging 1,566 characters -- most of the tail is
+#: packaging trivia, and keeping all of it triples the committed data for no
+#: measured gain. ``retrieval/03`` measures what the first 600 characters buy.
+FEATURE_CHARS = 600
+
+
+def _trim_features(series: pd.Series) -> pd.Series:
+    """Match the committed samples: collapsed whitespace, first 600 characters."""
+    return (
+        series.fillna("").astype(str)
+        .str.slice(0, FEATURE_CHARS)
+        .str.replace(r"\s+", " ", regex=True)
+        .str.strip()
+    )
+
+
 def _full_products() -> pd.DataFrame:
     """All 42,994 products, downloading the 86 MB source file on first use."""
-    return pd.read_csv(
+    frame = pd.read_csv(
         _download("product.csv"),
         sep="\t",
-        usecols=["product_id", "product_name", "product_class", "category hierarchy"],
+        usecols=["product_id", "product_name", "product_class", "category hierarchy",
+                 "product_features"],
     ).rename(columns={"category hierarchy": "category_hierarchy"})
+    frame["product_features"] = _trim_features(frame.product_features)
+    return frame
 
 
 def load_wands_taxonomy() -> list[str]:
@@ -113,8 +134,9 @@ def load_wands_products(full: bool = False) -> pd.DataFrame:
             2,500-row stratified sample committed to the repo.
 
     Returns:
-        A frame with ``product_id``, ``product_name``, ``product_class`` and
-        ``category_hierarchy``.
+        A frame with ``product_id``, ``product_name``, ``product_class``,
+        ``category_hierarchy`` and ``product_features`` (trimmed, see
+        :data:`FEATURE_CHARS`).
     """
     if full:
         frame = _full_products()
@@ -226,7 +248,8 @@ class EvalSet:
     """
 
     queries: pd.DataFrame  # query_id, query, query_class
-    products: pd.DataFrame  # product_id, product_name, product_class, category_hierarchy
+    products: pd.DataFrame  # product_id, product_name, product_class, category_hierarchy,
+    #                           product_features
     labels: pd.DataFrame  # query_id, product_id, label
 
     def judgements(self) -> list[tuple[str, str, str]]:

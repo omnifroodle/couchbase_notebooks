@@ -564,6 +564,40 @@ def hybrid_search(
     return [Hit(id=row.id, score=row.score, fields=row.fields or {}) for row in result.rows()]
 
 
+def get_docs(collection, ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+    """Fetch documents by key, skipping any that are gone.
+
+    A Search index returns what it was told to store, which is rarely the whole
+    document -- storing a field only so it can be displayed makes the index
+    bigger for no search benefit. The usual shape is therefore: search for ids,
+    then read the documents themselves from the data service, which is a key
+    lookup and the fastest thing Couchbase does.
+    """
+    from couchbase.exceptions import DocumentNotFoundException
+
+    keys = list(ids)
+    if not keys:
+        return {}
+    try:
+        # One round trip for the batch. Fetching a 50-document shortlist one key
+        # at a time is ten times slower, and it is the kind of slow that looks
+        # like the model's fault.
+        result = collection.get_multi(keys)
+        return {
+            key: value.content_as[dict]
+            for key, value in result.results.items()
+            if getattr(value, "success", True)
+        }
+    except (AttributeError, NotImplementedError):  # pragma: no cover - older SDKs
+        found: dict[str, dict[str, Any]] = {}
+        for doc_id in keys:
+            try:
+                found[doc_id] = collection.get(doc_id).content_as[dict]
+            except DocumentNotFoundException:
+                continue
+        return found
+
+
 def drop_demo_data(cluster, bucket_name: str, scope_name: str) -> None:
     """Remove everything a notebook created. Handy at the end of a demo."""
     from couchbase.exceptions import ScopeNotFoundException
