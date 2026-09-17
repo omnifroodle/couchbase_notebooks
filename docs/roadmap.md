@@ -75,10 +75,23 @@ Nothing is scheduled. In rough order of value:
 
 1. **`retrieval/03` — retrieve wide, rerank narrow.** The most manager-legible result available
    ("same accuracy, a fraction of the cost"), and `retrieval/02` already establishes the recall
-   ceiling that makes the argument.
-2. **`flows/02` — chat with memory.** Working vs. durable memory, recall over past turns, what
+   ceiling that makes the argument. It also answers the question `02` leaves hanging: a filter
+   and a reranker are two bets on the same uncertainty, and only one is recoverable. A filter
+   removes a product for good; a reranker that misjudges one merely ranks it badly. Score both
+   over the same 40 queries and that stops being a claim. Read
+   [Reranking means a second model](#reranking-means-a-second-model-nothing-else-gets-the-word)
+   before writing a word of it.
+2. **`flows/03` — agentic search.** Search, judge the results, search again. The sceptical
+   framing is the useful one: an agent loop is a bet that fixed classifiers and fixed `k` are
+   too rigid, and it is expensive, so it has to beat single-shot retrieval and rerank on the
+   same judgements to earn its place. Lands in `flows/` for the same reason agent memory does —
+   the loop is the subject, not the recall mechanics. **Blocked on `retrieval/03`**, which supplies the
+   baseline, and it needs evaluation layers 4 (trajectory) and 5 (stability), neither of which
+   any notebook has yet. Plain vector search already drifts ~0.005 nDCG between runs; an agent
+   deciding when to stop will drift further, so one run of it proves nothing.
+3. **`flows/02` — chat with memory.** Working vs. durable memory, recall over past turns, what
    to forget. Needs a conversation corpus, which is the usual blocker.
-3. **`data-model/03` — schema evolution.** Re-extract with a better prompt; the interesting
+4. **`data-model/03` — schema evolution.** Re-extract with a better prompt; the interesting
    question is which documents *changed*, which is a diff rather than a rebuild. `extracted_at`
    is already on every derived document for this.
 
@@ -92,6 +105,7 @@ Nothing is scheduled. In rough order of value:
 | Freshness — a document changes, its embedding is now a lie | The most Couchbase-native story after single-write, and almost nobody demos it. Eventing is the natural trigger but is **paid-tier on Capella**, so a runnable version needs an SDK-side `needs_embedding` flag. |
 | SQL++ and vector search in one query | `data-model/01` uses SQL++ and `/02` uses filtered vector search, but nothing yet joins vector hits to structured data in a single statement. A real differentiator against standalone vector stores. |
 | Cost and latency engineering | Quantisation, dimension choice, `vector_index_optimized_for`. |
+| **Couchbase has more than one vector index** | Search-service vector fields (what every notebook here uses), and 8.0's Composite and Hyperscale vector indexes on the Index service, queried by SQL++ with different defaults — Hyperscale quantises by default, the Search index at `recall` does not. Worth its own notebook: which index for which job, and what each costs in memory, QPS and accuracy. Until then no notebook may imply there is only one. |
 | Multi-tenancy | Scopes and collections as tenant boundaries. Boring to build, disproportionately convincing to enterprise readers. |
 | Chunking strategies, compared | `flows/01` has the ground truth to score them against — fixed 1,200-character windows are a guess nobody has checked. |
 
@@ -101,7 +115,7 @@ Nothing is scheduled. In rough order of value:
 | --- | --- |
 | Chat with memory | See Next up. |
 | Agent memory with `agentc` | **Read the current API before planning it.** Do not design from recollection. |
-| Agentic retrieval / query planning | Includes the second-pass "fitting" idea from `enrich/01`: use Couchbase indexes to build a short candidate list, then a narrow refining prompt. |
+| Agentic retrieval / query planning | Promoted to Next up as `flows/03`. Still includes the second-pass "fitting" idea from `enrich/01`: use Couchbase indexes to build a short candidate list, then a narrow refining prompt. |
 | Text-to-SQL++ with a safety net | Tool-calling over the query service with guardrails. |
 
 ### `enrich/`
@@ -218,6 +232,41 @@ coupling — not a cycle, but the kind of thing that rots.
 **`00_check_setup` is the only place the two meet.** Couplings belong at the top of the stack
 where they are visible, not buried in a library everything imports. It also keeps
 `cbnb.readiness` — which ships to every Colab reader — free of any knowledge of repo layout.
+
+### Reranking means a second model. Nothing else gets the word
+
+Researched 2026-09-17, before `retrieval/03` exists, because Couchbase's docs use `rerank` for
+something else and a notebook that repeats that usage would teach the confusion.
+
+**Reranking, as the field uses it:** a second model — usually a cross-encoder — re-scores the
+top candidates by reading query and document *together*, instead of comparing two independently
+produced vectors. Couchbase does not do this for you: it is your model, run over the candidates
+a Couchbase search returned. A small cross-encoder on `sentence-transformers` keeps `03` free
+and offline. Its usual training corpus is MS MARCO; WANDS is not, so the contamination footnote
+does not apply here.
+
+**What the `rerank` argument in
+[the Hyperscale docs](https://docs.couchbase.com/server/current/vector-index/hyperscale-reranking.html)
+does** is re-score with full-precision vectors, undoing quantisation error. Same model, same
+embedding, better arithmetic — no second opinion about relevance anywhere in it. Write it as
+*full-precision re-scoring*, and if the argument's name has to appear, say plainly that what
+this flag calls reranking is not what the term means elsewhere. Cost: QPS, and index size
+(269KiB → 1.17MiB in their example).
+
+**Why that flag exists — and what it says about defaults.** A **Hyperscale Vector index**
+(Index service, SQL++, Couchbase 8.0) defaults to `IVF,SQ8`: inverted file, scalar quantisation
+at 8 bits per dimension. **It searches the quantised vectors by default**, which is what the
+flag is there to walk back.
+
+**These notebooks are not affected, and any notebook touching this must say so.** They use a
+**Search-service** index with `vector_index_optimized_for: "recall"`, where quantisation is
+confined to the `memory-efficient` option (7.6.4+, inverted file with scalar quantisation).
+Different service, different index, different defaults. Verify this on a live cluster before
+publishing it — the docs do not state the Search service's default precision outright, and this
+is exactly the kind of claim that is embarrassing to get wrong.
+
+**Capella's Model Service is Enterprise Support only**, so a hosted reranking model — if it
+offers one, which the docs do not say — is an aside, not a dependency.
 
 ## Couchbase AI Data Plane
 
