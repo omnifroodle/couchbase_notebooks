@@ -57,7 +57,8 @@ code cell means re-shipping, which means a working cluster and a working API key
 **A re-ship invalidates prose, and nothing enforces that.** Statements naming specifics from
 the run — the lowest-scoring row, a particular product, the shape of the failures — go stale
 while every check still passes. After re-shipping, run `make review NB=NN`: it asks a model
-which claims the new outputs no longer support. Advisory only; verify before editing.
+which claims the new outputs no longer support, and which passages are about how the
+notebook was made. Advisory only; verify before editing.
 
 ### Unless the output isn't about the technique
 
@@ -92,6 +93,16 @@ The first line of every code cell is a short plain-English comment describing th
 setup and clean-up included. The markdown above it is often about the problem, not the
 code. `check_notebooks.py` enforces it. The ship stamp skips a cell's leading comment
 lines, so fixing the wording needs no re-ship.
+
+## Don't show the reader how the notebook was made
+
+The audience is someone learning the technique, not the author. Prose covers the technique
+and what the reader's run will show. Never cover drafts, earlier versions, runs the reader
+never saw, or our tooling ("ship", "review"). Cut an aside that only exists because we hit a
+problem while building. If the concern is real, move it to the notebook whose lesson it is,
+or to the roadmap. Full rule and the not-violations:
+[`docs/adding-a-notebook.md`](docs/adding-a-notebook.md). `make review` flags candidates;
+the soft cases need your judgement.
 
 ## Verdicts go in a panel, not a print
 

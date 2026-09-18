@@ -98,7 +98,7 @@ Nothing is scheduled. In rough order of value:
 | Freshness — a document changes, its embedding is now a lie | The most Couchbase-native story after single-write, and almost nobody demos it. Eventing is the natural trigger but is **paid-tier on Capella**, so a runnable version needs an SDK-side `needs_embedding` flag. |
 | SQL++ and vector search in one query | `data-model/01` uses SQL++ and `/02` uses filtered vector search, but nothing yet joins vector hits to structured data in a single statement. A real differentiator against standalone vector stores. |
 | Cost and latency engineering | Quantisation, dimension choice, `vector_index_optimized_for`. |
-| **Couchbase has more than one vector index** | Search-service vector fields (what every notebook here uses), and 8.0's Composite and Hyperscale vector indexes on the Index service, queried by SQL++ with different defaults — Hyperscale quantises by default, the Search index at `recall` does not. Worth its own notebook: which index for which job, and what each costs in memory, QPS and accuracy. Until then no notebook may imply there is only one. |
+| **Couchbase has more than one vector index** | Search-service vector fields (what every notebook here uses), and 8.0's Composite and Hyperscale vector indexes on the Index service, queried by SQL++ with different defaults — Hyperscale quantises by default, the Search index at `recall` does not. Worth its own notebook: which index for which job, and what each costs in memory, QPS and accuracy. Until then no notebook may imply there is only one. Also the home for *build history*: rewriting identical documents moves a Search vector index's results (see Still open, *Vector scores drift*). |
 | Multi-tenancy | Scopes and collections as tenant boundaries. Boring to build, disproportionately convincing to enterprise readers. |
 | Chunking strategies, compared | `flows/01` has the ground truth to score them against — fixed 1,200-character windows are a guess nobody has checked. |
 
@@ -260,7 +260,7 @@ around 1e-3. So scoring there is full precision.
 
 **That is about scoring, not candidate selection.** Exact arithmetic on an approximately chosen
 candidate set is still approximate retrieval, and the graph traversal that picks the candidates
-is the likelier source of `retrieval/02`'s run-to-run drift. Do not let one get written as
+is the source of `retrieval/02`'s run-to-run drift (confirmed; see Still open). Do not let one get written as
 evidence for the other.
 
 **Capella's Model Service is Enterprise Support only**, so a hosted reranking model — if it
@@ -522,15 +522,19 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
   `rating_count`, `average_rating` and `review_count` are in WANDS upstream and not in `data/`.
   Features beat description when measured together, so this is not obviously worth the size; the
   ratings fields are untested as ranking signals.
-- **Vector scores drift between runs.** Three runs of `retrieval/02` against one index gave
-  vector nDCG@10 of 0.776, 0.779 and 0.781, and flipped which strategy led that column. BM25 is
-  identical every time, so it is the approximate nearest-neighbour search. The notebook's prose
-  now states what holds across runs rather than one run's decimals, but nothing *reports* the
-  spread: `cbnb.eval` could score repeated runs and show a range, which is Evaluation layer 5
-  (stability) arriving early. Until then, any claim resting on a gap of about 0.01 is suspect.
-  Not quantisation — the Search index scores in full precision (see
-  [Reranking means a second model](#reranking-means-a-second-model-nothing-else-gets-the-word));
-  approximate candidate selection is the open suspect, and nobody has confirmed it.
+- **Vector scores drift between runs — cause confirmed 2026-09-18.** Every run of `retrieval/02`
+  and `03` re-upserts all 6,482 products, and the Search service re-indexes them even when the
+  content is byte-identical. The approximate-neighbour structures are rebuilt, and vector
+  results move: rewriting the same documents twice took vector nDCG@10 from 0.7774 to 0.7808
+  to 0.7752. With no writes in between, repeated searches in one session score identically;
+  10 of 40 top-50 lists do reorder, but only among tied scores, which the metrics ignore. Query
+  embeddings are bit-identical across processes, so none of it is client-side. BM25 does not
+  move. **Where it belongs:** the vector-index-types notebook (see Backlog, *Couchbase has more
+  than one vector index*): an index's answers depend on its build history as well as its
+  contents. It is too advanced for the early retrieval notebooks, which say only what a reader
+  needs: their run will differ by a few thousandths, so gaps that small are ties. Still open:
+  whether an index that is never rewritten stays stable over days, and whether `cbnb.eval`
+  should report a spread (Evaluation layer 5, stability).
 - **A recall figure is meaningless without its ceiling.** WANDS judges a median of 125 relevant
   products per query, so the best possible R@50 is 0.462 and the strategies reach 87% of it. Any
   notebook reporting recall must report what was achievable.

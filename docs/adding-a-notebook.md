@@ -70,6 +70,29 @@ press Run. `check_notebooks.py` fails a cell without one. The ship stamp ignores
 cell's leading comment lines, so rewording one does not need a re-ship. Comments further
 down the cell are still hashed.
 
+**Don't show the reader how the notebook was made.** The reader is learning the technique,
+not reviewing our work. The prose covers two things: the technique, and what the reader sees
+when they run the cells. It never covers how the notebook came to be.
+
+- **Hard violations: always cut.** Anything about how the notebook was written: drafts or earlier
+  versions, runs the reader never saw, what we did or worried about while building it, and our
+  tooling (ship, review, stamps). *"While writing this we ran it three times"*, *"this notebook
+  was written twice"*, *"the first version of this notebook got that wrong"*.
+- **Soft violations: a judgement call.** A section or aside that exists because *we* hit a
+  problem, not because the reader needs it for this notebook's lesson. Would it be here if we
+  hadn't run into that while building? Does it serve the core lesson? If the reader does need
+  it, keep the smallest version, at the point where it matters. If it is a lesson in its own
+  right, move it to the notebook that teaches that lesson, or to the roadmap if that notebook
+  does not exist yet.
+- **Not violations.** A failure the reader watches happen in the cells: that is the argument,
+  not a confession. What the reader's *own* run will show (*"your scores will differ by a few
+  thousandths"*). Something we learned while building, restated as a fact about the technique
+  with the history removed. Being open about a choice that shapes what the reader sees, such as
+  a deliberately thin corpus, so long as it says what the choice is and why it helps the lesson.
+
+`make review` asks a model to flag these (the "audience review"). Like the claim review it is
+advisory. It is reliable on the hard cases; the soft ones are yours to judge.
+
 **Keep the technique in the notebook and the plumbing in `cbnb`.** If a cell is
 twenty lines of index configuration, move it into `cbnb/couchbase_io.py` and
 call it. The notebook should read as an argument, not a script.

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Ask a model which of a notebook's claims its stored outputs no longer support.
+"""Ask a model two questions about a notebook's prose.
+
+Which claims do its stored outputs no longer support? And which passages show the
+reader how the notebook was made, rather than teaching the technique?
 
 Run: python scripts/review_notebook.py 01
 
@@ -20,7 +23,7 @@ sys.path.insert(0, str(ROOT))
 # A batch tool: report a missing credential, never stop and ask for one.
 os.environ.setdefault("CBNB_NONINTERACTIVE", "1")
 
-from cbnb.review import check_claims  # noqa: E402 - needs ROOT on sys.path
+from cbnb.review import check_audience, check_claims  # noqa: E402 - needs ROOT on sys.path
 
 
 def resolve(name: str) -> Path | None:
@@ -51,6 +54,7 @@ def main(argv: list[str]) -> int:
             label = path  # a notebook from outside the repo, e.g. a test fixture
         print(f"--- {label} ---")
         print(check_claims(path))
+        print(check_audience(path))
         print()
     return 0
 

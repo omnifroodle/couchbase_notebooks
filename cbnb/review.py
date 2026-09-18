@@ -50,6 +50,7 @@ __all__ = [
     "Commentary",
     "Finding",
     "Report",
+    "check_audience",
     "check_claims",
     "commentary",
     "evidence_of",
@@ -86,6 +87,7 @@ class Report:
     findings: list[Finding] = field(default_factory=list)
     skipped: str = ""  # why the review did not run, if it did not
     model: str = ""
+    label: str = "claim review"
 
     @property
     def ok(self) -> bool:
@@ -93,10 +95,10 @@ class Report:
 
     def __str__(self) -> str:
         if self.skipped:
-            return f"claim review skipped: {self.skipped}"
+            return f"{self.label} skipped: {self.skipped}"
         if not self.findings:
-            return f"claim review ({self.model}): nothing flagged"
-        lines = [f"claim review ({self.model}): {len(self.findings)} to look at", ""]
+            return f"{self.label} ({self.model}): nothing flagged"
+        lines = [f"{self.label} ({self.model}): {len(self.findings)} to look at", ""]
         lines += [str(f) + "\n" for f in self.findings]
         lines.append("Advisory only -- a model's opinion, not a test. Check each against the "
                      "outputs yourself before editing.")
@@ -245,17 +247,100 @@ def check_claims(
     Never raises: anything that goes wrong becomes a skipped report, because
     this is advice and advice is not worth failing a build over.
     """
-    try:
-        nb = notebook if isinstance(notebook, dict) else json.loads(Path(notebook).read_text())
-    except (OSError, json.JSONDecodeError) as exc:
-        return Report(skipped=f"could not read the notebook ({exc})")
-
+    nb, error = _load(notebook)
+    if error:
+        return Report(skipped=error)
     prose, evidence = prose_of(nb), evidence_of(nb)
     if not evidence.strip():
         return Report(skipped="the notebook has no stored outputs to check against")
     if not prose.strip():
         return Report(skipped="the notebook has no prose to check")
+    return _review(SYSTEM, USER.format(prose=prose, evidence=evidence), "claim review",
+                   verdicts="'contradicted' or 'unsupported'",
+                   why_hint="what the outputs show instead, in one sentence",
+                   model=model, provider=provider)
 
+
+AUDIENCE_SYSTEM = """You are reviewing a technical notebook before it is published. The \
+reader is someone learning the technique it teaches. They are not its author, and they did \
+not watch it being written.
+
+Check one thing: does the prose show the reader how the notebook was made?
+
+Flag as 'hard' any mention of the authoring process: drafts or earlier versions of the \
+notebook, runs the reader never saw ("while writing this we ran it three times"), what the \
+author did or worried about while building it ("this notebook was written twice"), or the \
+project's own tooling and workflow (shipping, re-shipping, review passes, stamps).
+
+Flag as 'soft' a passage or section that exists to settle a concern the author had while \
+building, rather than to teach this notebook's technique: it would not be there if the \
+author had not hit the problem, and it pulls attention from the core lesson.
+
+Do NOT flag:
+- a failure the reader watches happen in the notebook's own cells; that is the lesson
+- statements about what the reader's own run will show ("your numbers will differ slightly")
+- facts about the technique that were learned while building, stated as facts about the \
+technique rather than as history
+- remarks about how the field or other people report results
+- open statements about choices that shape what the reader sees, such as a deliberately thin \
+corpus or a small sample; saying what the choice is and why it helps the lesson is honesty
+- links to other notebooks in the series, setup instructions, or suggested next steps
+
+Quote each passage exactly. Report nothing if nothing is wrong: a false flag costs the \
+author time they will not spend on the real ones."""
+
+AUDIENCE_USER = """Prose from the notebook:
+
+{prose}
+
+=====
+
+List the passages that show the reader how the notebook was made."""
+
+
+def check_audience(
+    notebook: str | Path | dict[str, Any],
+    *,
+    model: str | None = None,
+    provider: str | None = None,
+) -> Report:
+    """Flag prose written about the making of the notebook rather than for its reader.
+
+    Prose only: whether a passage is authoring history does not depend on the
+    run. Advisory and never raises, like :func:`check_claims`.
+    """
+    nb, error = _load(notebook)
+    if error:
+        return Report(skipped=error, label="audience review")
+    prose = prose_of(nb)
+    if not prose.strip():
+        return Report(skipped="the notebook has no prose to check", label="audience review")
+    return _review(AUDIENCE_SYSTEM, AUDIENCE_USER.format(prose=prose), "audience review",
+                   verdicts="'hard' (about the authoring process) or 'soft' (a detour the "
+                            "author needed and the reader does not)",
+                   why_hint="why a learner would not need it, in one sentence",
+                   model=model, provider=provider)
+
+
+def _load(notebook: str | Path | dict[str, Any]) -> tuple[dict[str, Any], str]:
+    if isinstance(notebook, dict):
+        return notebook, ""
+    try:
+        return json.loads(Path(notebook).read_text()), ""
+    except (OSError, json.JSONDecodeError) as exc:
+        return {}, f"could not read the notebook ({exc})"
+
+
+def _review(
+    system: str,
+    prompt: str,
+    label: str,
+    *,
+    verdicts: str,
+    why_hint: str,
+    model: str | None,
+    provider: str | None,
+) -> Report:
     try:
         from pydantic import BaseModel, Field
 
@@ -264,8 +349,8 @@ def check_claims(
         class _Finding(BaseModel):
             cell: int = Field(description="the [cell N] the statement appears in")
             quote: str = Field(description="the statement, copied exactly from the prose")
-            verdict: str = Field(description="'contradicted' or 'unsupported'")
-            why: str = Field(description="what the outputs show instead, in one sentence")
+            verdict: str = Field(description=verdicts)
+            why: str = Field(description=why_hint)
 
         class _Review(BaseModel):
             # Required, not defaulted: with a default, a bare "{}" validates as a
@@ -281,9 +366,9 @@ def check_claims(
         chosen = model or os.environ.get("CBNB_REVIEW_MODEL") or cfg.llm_model or None
         llm = LLM(provider or cfg.llm_provider, model=chosen)
         review = llm.structured(
-            USER.format(prose=prose, evidence=evidence),
+            prompt,
             _Review,
-            system=SYSTEM,
+            system=system,
             temperature=0,
             # A findings list with quotes outgrows the default, and a reasoning
             # model spends part of this budget thinking: at 2048 one returned a
@@ -291,13 +376,13 @@ def check_claims(
             max_tokens=16000,
         )
     except Exception as exc:  # noqa: BLE001 - advisory: degrade, never break
-        return Report(skipped=f"{type(exc).__name__}: {_first_line(exc)}")
+        return Report(skipped=f"{type(exc).__name__}: {_first_line(exc)}", label=label)
 
     findings = [
         Finding(cell=f.cell, quote=f.quote.strip(), verdict=f.verdict.strip().lower(), why=f.why)
         for f in review.findings
     ]
-    return Report(findings=findings, model=llm.model)
+    return Report(findings=findings, model=llm.model, label=label)
 
 
 # --- Live commentary -------------------------------------------------------
