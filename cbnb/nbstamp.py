@@ -28,14 +28,29 @@ def _source(cell: dict[str, Any]) -> str:
     return "".join(source) if isinstance(source, list) else source
 
 
+def _without_header(source: str) -> str:
+    """A cell's source minus its leading comment lines (and blank lines among them)."""
+    lines = source.splitlines(keepends=True)
+    start = 0
+    while start < len(lines) and (not lines[start].strip() or lines[start].lstrip().startswith("#")):
+        start += 1
+    return "".join(lines[start:])
+
+
 def source_hash(nb: dict[str, Any]) -> str:
     """Hash of the code cells' sources, in order.
 
     Only code produces outputs, so only code can make them stale. Markdown is
     left out on purpose: fixing prose to match a run should not demand a new
-    run.
+    run. So is each cell's leading comment -- the plain-English line saying what
+    the cell does -- for the same reason. Comments further down are hashed:
+    telling one apart from a line inside a string needs a parser.
     """
-    payload = [_source(cell) for cell in nb.get("cells", []) if cell.get("cell_type") == "code"]
+    payload = [
+        _without_header(_source(cell))
+        for cell in nb.get("cells", [])
+        if cell.get("cell_type") == "code"
+    ]
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()[:16]
 
 

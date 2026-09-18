@@ -86,6 +86,13 @@ in a notebook that otherwise commits everything. For output worth seeing live an
 publish — `cbnb.review.commentary`, which is unreviewed, differs every run, and is not one
 of the notebook's claims.
 
+## Every code cell says what it does
+
+The first line of every code cell is a short plain-English comment describing that cell,
+setup and clean-up included. The markdown above it is often about the problem, not the
+code. `check_notebooks.py` enforces it. The ship stamp skips a cell's leading comment
+lines, so fixing the wording needs no re-ship.
+
 ## Verdicts go in a panel, not a print
 
 Output whose job is a verdict — ready or blocked, pass or fail, a checklist of what is

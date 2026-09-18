@@ -95,8 +95,21 @@ def check(path: Path) -> tuple[list[str], list[str]]:
                 "see CLAUDE.md)"
             )
 
+    # A reader clicking Run should know what they are running without the prose
+    # above it, which is often about the problem rather than the cell.
     for i, cell in enumerate(cells):
-        haystacks = ["".join(cell.get("source", []))]
+        if cell.get("cell_type") != "code":
+            continue
+        first_line = next((line for line in "".join(cell.get("source", [])).splitlines()
+                           if line.strip()), "")
+        if not first_line.startswith("# "):
+            problems.append(
+                f"cell {i}: code cell does not open with a one-line comment saying what it does "
+                "(see docs/adding-a-notebook.md)"
+            )
+
+    for i, cell in enumerate(cells):
+        haystacks =["".join(cell.get("source", []))]
         for output in cell.get("outputs", []):
             haystacks.append("".join(output.get("text", [])))
             for value in (output.get("data") or {}).values():

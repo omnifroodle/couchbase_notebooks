@@ -62,6 +62,14 @@ conclusion as its headline, rather than lines of `print`. `cbnb.bootstrap` and
 `00_check_setup` both do. Measurements and model output are not verdicts; leave them as
 tables and text.
 
+**Every code cell opens with a one-line comment saying what it does.** Plain English,
+short, about *this* cell: `# Build the Search index and wait until it's ready.` The
+markdown above a cell is often about the problem, not the code, and a setup cell's
+purpose is rarely obvious from its first import. The comment is for the reader about to
+press Run. `check_notebooks.py` fails a cell without one. The ship stamp ignores a
+cell's leading comment lines, so rewording one does not need a re-ship. Comments further
+down the cell are still hashed.
+
 **Keep the technique in the notebook and the plumbing in `cbnb`.** If a cell is
 twenty lines of index configuration, move it into `cbnb/couchbase_io.py` and
 call it. The notebook should read as an argument, not a script.
