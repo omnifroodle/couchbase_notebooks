@@ -41,6 +41,15 @@ Tracks are **retrieval** (recall mechanics), **flows** (RAG, chat, agents), **en
 the write path) and **data-model** (Couchbase-specific modelling). Numbers restart inside each
 track.
 
+### Experiments
+
+First looks at a model or technique before a track notebook uses it. They are outside the
+reading order above and may not touch Couchbase at all.
+
+| Notebook | What it tries | Result |
+| --- | --- | --- |
+| [A first look at decision models](notebooks/experiments/01_first_look_at_decision_models.ipynb) | TypeSafe's Jev, reached through OpenRouter: typed yes/no, choice and scale answers with probabilities, instead of generated text. Ends on reading intent from real WANDS search queries. Needs an OpenRouter key with access to the model. | About a quarter of a second per call, network included; twelve questions cost no more time than one; confidence drops below 0.5 on ambiguous inputs |
+
 What's coming, and why things are arranged this way: [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Getting started
@@ -94,6 +103,7 @@ The shared helper package, so the notebooks show the technique and not the plumb
 | `config.py` | Credential resolution: env → `.env` → Colab secrets → `getpass`. |
 | `couchbase_io.py` | Connect, provision scopes/collections, build Search indexes, bulk load, search. Every `ensure_*` is idempotent. |
 | `llm.py` | One client for any OpenAI-compatible endpoint. Structured output that degrades gracefully, a disk cache, token accounting, parallel `map`. |
+| `decisions.py` | Typed questions to a System One decision model through OpenRouter's `/decisions` endpoint. Separate from `llm.py`, and always needs `OPENROUTER_API_KEY`. |
 | `embeddings.py` | Local sentence-transformers or an API endpoint. Always normalised. |
 | `datasets.py` | Openly-licensed datasets, with small samples committed so notebooks run instantly. |
 | `eval.py` | Retrieval metrics via `ir-measures`/`trec_eval`, plus the judgement calls that are ours. |

@@ -27,7 +27,15 @@ notebooks/retrieval/    Recall mechanics: vector, hybrid, filtered, rerank, fres
 notebooks/flows/        AI-powered applications: RAG, chat with memory, agents
 notebooks/enrich/       AI on the write path: classification, extraction, normalisation
 notebooks/data-model/   One document, many views — Couchbase-specific data modelling
+notebooks/experiments/  Trying a new model or technique on its own, before a track uses it
 ```
+
+**`experiments/` is not a fifth track.** It holds first looks at a model or technique we expect to
+use: does it work, what does it return, what does it cost. It sits outside the reading order,
+and its notebooks need not touch Couchbase. The same rules apply as everywhere else: a setup
+cell, declared requirements, committed outputs and prose the outputs support. An experiment
+earns its way out when a track notebook uses the thing to make an argument. Then the experiment
+either stays as the reference, or is deleted if the track notebook covers it.
 
 **On `data-model/`:** the "single write" track, pitched as *one document, many views*.
 Structured fields, extracted entities, raw text and vectors on one document, written once — no
@@ -56,6 +64,7 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-16 | `data-model/01` documents that learn | Extract, attach (embedded *and* referenced), query with SQL++. |
 | 2026-09-16 | `data-model/02` adding retrieval | Chunks as derived documents; what a search index's inability to join forces. |
 | 2026-09-17 | `enrich/02` scoring the extraction | Closes the gap `data-model/01` left. Four fields, four scoring rules, and two self-checks that both fall short. |
+| 2026-09-18 | `experiments/01` a first look at decision models | TypeSafe's Jev through OpenRouter's alpha `/decisions` endpoint. The first `experiments/` notebook, and the first to need no cluster. |
 | 2026-09-17 | `retrieval/03` retrieve wide, rerank narrow | A cross-encoder over the shortlist. The first attempt failed — see below — and that became the notebook's argument. |
 
 ### What the retrieval split taught
@@ -108,6 +117,7 @@ Nothing is scheduled. In rough order of value:
 | --- | --- |
 | Chat with memory | See Next up. |
 | Agent memory with `agentc` | **Read the current API before planning it.** Do not design from recollection. |
+| Query intent with a decision model | `experiments/01` showed a decision model reading department, specificity and attributes from WANDS queries in ~0.2 s, and splitting its probability when a query is genuinely ambiguous. Next: route `retrieval/02`'s queries by its department answer, skip the filter below a confidence threshold, and score it against the catalogue-statistics guess with the same judgements. Also a candidate for the cheap per-step decisions in `flows/03` (search again? which filter?). |
 | Agentic retrieval / query planning | Promoted to Next up as `flows/03`. Still includes the second-pass "fitting" idea from `enrich/01`: use Couchbase indexes to build a short candidate list, then a narrow refining prompt. |
 | Text-to-SQL++ with a safety net | Tool-calling over the query service with guardrails. |
 
@@ -202,7 +212,7 @@ the bootstrap cell — never by executing them), probes the environment once, pr
 new notebook appears because it declared, not because anyone registered it.
 
 **Capabilities are named, coarse and few:** `couchbase`, `llm`, `local-embeddings`,
-`api-embeddings`, `dataset-download`, `ram-8gb`. Resist making them fine-grained — the point is a
+`api-embeddings`, `dataset-download`, `decision-model`, `ram-8gb`. Resist making them fine-grained — the point is a
 reader-legible verdict, not a dependency solver.
 
 **Probes must be real.** `llm` means a live call succeeded, not that a key is present. The
