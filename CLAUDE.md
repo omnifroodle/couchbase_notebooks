@@ -25,7 +25,7 @@ settings = cbnb.bootstrap(requires=["couchbase", "llm", "local-embeddings"])
 ```
 
 Capability names come from `cbnb.readiness.CAPABILITIES` — currently `couchbase`, `llm`,
-`local-embeddings`, `api-embeddings`, `dataset-download`, `ram-8gb`. Adding a *new*
+`local-embeddings`, `api-embeddings`, `dataset-download`, `decision-model`, `ram-8gb`. Adding a *new*
 capability means adding a probe there; keep them coarse and few. They exist to give a
 reader a legible verdict, not to resolve dependencies.
 

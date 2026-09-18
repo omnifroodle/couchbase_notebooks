@@ -254,6 +254,33 @@ def _api_embeddings_deep() -> tuple[bool, str, str]:
     return True, f"{cfg.llm_provider} / {model} returned {len(vectors[0])} dimensions", ""
 
 
+# --- decision model --------------------------------------------------------
+
+def _decision_model_shallow() -> tuple[bool, str, str]:
+    from cbnb.config import get
+    from cbnb.decisions import KEY_ENV
+
+    _settings()  # loads .env
+    if not get(KEY_ENV, required=False):
+        return False, f"no OpenRouter key ({KEY_ENV} unset)", _fix_setting(KEY_ENV)
+    return True, "OpenRouter key present", ""
+
+
+def _decision_model_deep() -> tuple[bool, str, str]:
+    ok, detail, fix = _decision_model_shallow()
+    if not ok:
+        return ok, detail, fix
+    from cbnb.decisions import DEFAULT_MODEL, decide, noul
+
+    try:
+        result = decide("The sky is blue.", {"ok": noul("Is this statement about the sky?")})
+    except Exception as exc:  # noqa: BLE001
+        return False, f"decision call failed: {str(exc).strip().splitlines()[0]}", (
+            f"{DEFAULT_MODEL} is in limited access: check your OpenRouter account can use it"
+        )
+    return True, f"{result.model} answered in {result.seconds * 1000:.0f} ms", ""
+
+
 # --- everything else -------------------------------------------------------
 
 def _dataset_download_shallow() -> tuple[bool, str, str]:
@@ -314,6 +341,8 @@ CAPABILITIES: dict[str, Capability] = {
                    _api_embeddings_shallow, _api_embeddings_deep),
         Capability("dataset-download", "Downloading a full dataset",
                    _dataset_download_shallow, _dataset_download_deep),
+        Capability("decision-model", "A System One decision model, via OpenRouter",
+                   _decision_model_shallow, _decision_model_deep),
         Capability("ram-8gb", "At least 8 GiB of memory", _ram_8gb),
     ]
 }

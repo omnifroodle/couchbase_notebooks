@@ -7,7 +7,9 @@ and conventions still being settled, see [`roadmap.md`](roadmap.md).
 
 ```
 notebooks/<track>/NN_name.ipynb the notebook — track is retrieval, flows,
-                                enrich or data-model; see docs/roadmap.md
+                                enrich or data-model; see docs/roadmap.md.
+                                notebooks/experiments/ holds first looks
+                                at a new model or technique
 cbnb/                           shared helpers — connection, indexes, LLM, embeddings
 data/                           small, openly-licensed data committed to the repo
 docs/                           setup and reference
