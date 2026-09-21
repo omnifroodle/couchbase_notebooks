@@ -1,0 +1,142 @@
+# Slide plan for notebooks/data-model/01_documents_that_learn.ipynb
+#
+# Drafted by `make review-slides NB=01_documents_that_learn`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/data-model/01_documents_that_learn.ipynb
+summary_heading: In short
+summary:
+- Twenty real contracts arrive as walls of text and are stored exactly as they come — no schema,
+  just prose.
+- A model reads each one for the terms a lawyer would look for, and those terms are attached
+  to the documents already stored — no migration, no second store.
+- The notebook attaches the terms two ways — onto the document, and beside it as its own record
+  — and says when each is right.
+- 'Both become queryable with SQL++, so the contracts answer questions like: which California
+  agreements were signed after 2015?'
+- 'The claim throughout: a document can gain structured fields after it is stored and become
+  queryable without ceasing to be prose.'
+sections:
+- heading: 1. What arrives
+  setup: false
+  idea: Real contracts land as plain prose — a filename and thirty thousand characters — and
+    are stored exactly as they arrive, before any enrichment.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 3
+    mode: summarize
+    why: loading helper; its output is the point, not the code
+  - cell: 4
+    mode: summarize
+    why: storage loop; the read-back output carries the story
+  evidence:
+    cell: 3
+    says: Twenty contracts with a median of about thirty thousand characters each, shown as
+      raw prose.
+    explain: false
+  hash: 03871af136b6
+- heading: 2. Read it the way a lawyer would
+  setup: false
+  idea: A model extracts the handful of facts a junior associate would otherwise be paid to
+    find, with a schema so the answer comes back as data.
+  paragraphs:
+  - 0
+  - 3
+  code:
+  - cell: 6
+    mode: summarize
+    why: the schema and extraction loop are too long to read on a slide
+  - cell: 7
+    mode: summarize
+    why: display code; the table it produces is the evidence
+  evidence:
+    cell: 7
+    says: One row per contract with the model's extracted title, governing law, agreement
+      date, term length and renewal flag.
+    explain: false
+  hash: dac11e5f76d7
+- heading: 3. Embed it, or reference it?
+  setup: false
+  idea: The extracted terms can go onto the contract document itself or beside it as its own
+    keyed record — a named modelling decision the notebook makes both ways.
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code:
+  - cell: 9
+    mode: summarize
+    why: mutation loop too long to read; the prose already explains subdocument mutation
+  - cell: 10
+    mode: summarize
+    why: short read-back; its output is the evidence, not the code
+  - cell: 12
+    mode: summarize
+    why: the check's result matters, the loop does not
+  - cell: 14
+    mode: summarize
+    why: record-building loop; the printed confirmation suffices
+  evidence:
+    cell: 10
+    says: The stored contract now carries title, parties, governing law, date, term and renewal
+      flag alongside its untouched thirty thousand characters of text.
+    explain: false
+  hash: 92e2ce77ffa7
+- heading: 4. The prose is now data
+  setup: false
+  idea: With only an index added, SQL++ queries the new fields as though they had been columns
+    — including the two-field question the notebook exists to answer.
+  paragraphs:
+  - 0
+  - 2
+  - 3
+  code:
+  - cell: 17
+    mode: summarize
+    why: index creation is plumbing; one line is enough
+  - cell: 18
+    mode: summarize
+    why: the distribution table is the point, the query is routine
+  - cell: 20
+    mode: show
+    why: the join-by-key is the idea; reading ON KEYS is the point and it fits on a slide
+  - cell: 22
+    mode: show
+    why: the headline query, short enough to read and central to the story
+  - cell: 23
+    mode: summarize
+    why: a follow-up tally; one line is enough
+  evidence:
+    cell: 22
+    says: The California contracts signed since 2015 with their extracted fields — the result
+      the notebook's claim promised.
+    explain: false
+  hash: 950f85ae59ed
+- heading: What this bought
+  setup: false
+  idea: The enrichment cost one write and no migration, and the documents are prose and queryable
+    data at the same time.
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code:
+  - cell: 25
+    mode: hide
+    why: commented-out clean-up, not part of the story
+  evidence:
+    cell: false
+    says: No output in this section; it sums up what the whole notebook achieved.
+    explain: false
+  hash: f537127cc4ae

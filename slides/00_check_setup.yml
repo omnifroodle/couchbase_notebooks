@@ -1,0 +1,72 @@
+# Slide plan for notebooks/00_check_setup.ipynb
+#
+# Drafted by `make review-slides NB=00_check_setup`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/00_check_setup.ipynb
+summary_heading: In short
+summary:
+- This notebook checks your credentials for real, then tells you which notebook in this repo
+  you can run right now.
+- 'The checks are live: a real connection to Couchbase and a real call to your model provider,
+  because a key that is merely present tells you nothing.'
+- 'The result is a per-notebook verdict: ready, or blocked and on what.'
+- It is the one notebook here with no saved results, because its output only describes your
+  setup, so run it to see anything.
+sections:
+- heading: 1. What this environment can do
+  setup: false
+  idea: The notebook tests each named capability for real, rather than just checking that
+    keys exist.
+  paragraphs:
+  - 0
+  code:
+  - cell: 1
+    mode: hide
+    why: notebook bootstrap, not part of the story
+  - cell: 3
+    mode: show
+    why: short, and the live check being real is the point
+  evidence:
+    cell: 3
+    says: A panel listing each capability as ok or blocked, with the detail and a fix where
+      it is blocked.
+    explain: false
+  hash: 09d8066f4272
+- heading: 2. Which notebooks you can run
+  setup: false
+  idea: The working capabilities are matched against what every notebook declares it needs,
+    giving a ready-or-blocked verdict for each.
+  paragraphs:
+  - 0
+  code:
+  - cell: 5
+    mode: summarize
+    why: forty lines of matching logic; the one-line comment carries it
+  evidence:
+    cell: 5
+    says: A per-notebook list of ready and blocked entries, each blocked one naming the capability
+      it is missing.
+    explain: false
+  hash: cf170e711490
+- heading: 3. If something came back blocked
+  setup: false
+  idea: The two failures that are not simply a missing setting, and what to do about them.
+  paragraphs:
+  - 1
+  - 3
+  code: []
+  evidence:
+    cell: false
+    says: No output in this section; it is guidance for acting on the earlier results.
+    explain: false
+  hash: 18d4f9efeccb

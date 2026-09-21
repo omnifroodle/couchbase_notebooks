@@ -1,0 +1,132 @@
+# Slide plan for notebooks/retrieval/02_which_parts_helped.ipynb
+#
+# Drafted by `make review-slides NB=02_which_parts_helped`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/retrieval/02_which_parts_helped.ipynb
+summary_heading: In short
+summary:
+- Four ways to search one catalogue — BM25, vector, hybrid, and hybrid with a department filter
+  — run over the same 40 real queries and scored against human relevance judgements.
+- 'Scored properly, they do not agree on a winner: BM25 trails on ordering, the hybrids lead
+  recall, and some gaps are smaller than the run-to-run noise.'
+- A department filter that barely moves the average changes recall for 8–10 of the 40 queries
+  — an aggregate score hides more than it shows.
+- 'No LLM and no cost: just measurement, scored with trec_eval, the reference implementation
+  the IR literature reports against.'
+sections:
+- heading: 1. A benchmark small enough to run
+  setup: false
+  idea: The benchmark is a 40-query pool of WANDS with complete human judgements, and recall
+    here is measured against that pool, not the whole catalogue.
+  paragraphs:
+  - 1
+  - 2
+  code:
+  - cell: 3
+    mode: summarize
+    why: loading the dataset is plumbing, not the point
+  - cell: 5
+    mode: summarize
+    why: one-line count; the output matters, not the code
+  evidence:
+    cell: 5
+    says: The judgement counts by grade, showing Partial is the largest group, more numerous
+      than Exact.
+    explain: true
+  hash: 669c27e148ec
+- heading: 2. One index, three kinds of field
+  setup: true
+  idea: One Search index carries the text, vector, and keyword fields all four strategies
+    need, with both the lexical and vector sides reading the same text so neither is advantaged.
+  paragraphs:
+  - 2
+  code:
+  - cell: 7
+    mode: summarize
+    why: data preparation; the fairness point is in the prose
+  - cell: 8
+    mode: summarize
+    why: embedding is a one-line helper call
+  - cell: 9
+    mode: summarize
+    why: document upload plumbing
+  - cell: 10
+    mode: summarize
+    why: index creation; the field design is already in the markdown
+  evidence:
+    cell: 7
+    says: The first products with the single text field and department they will be indexed
+      by.
+    explain: false
+  hash: 4a9b8464f215
+- heading: 3. Four ways to answer the same question
+  setup: false
+  idea: Four strategies with the same shape — query in, ranked products out — make a fair
+    comparison, and the fourth derives its department filter from the catalogue, never from
+    the judgements.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 12
+    mode: summarize
+    why: the mapping idea is carried by the prose; the pandas is detail
+  - cell: 13
+    mode: summarize
+    why: 41 lines of definitions, too long to read on a slide
+  evidence:
+    cell: 12
+    says: How many of the 40 queries the catalogue statistics give a department to.
+    explain: false
+  hash: a95a19ce80a2
+- heading: 4. Score them
+  setup: false
+  idea: Two scoring decisions are made in the open — grades become gains as 2/1/0, and three
+    metrics are reported because they answer different questions — and the numbers come from
+    trec_eval.
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code:
+  - cell: 15
+    mode: summarize
+    why: a run-and-score loop; the resulting table is the point
+  - cell: 17
+    mode: summarize
+    why: ceiling arithmetic; the output carries it
+  evidence:
+    cell: 15
+    says: The three metrics — nDCG@10, R@50, RR — for all four strategies side by side.
+    explain: true
+  hash: bf65cdad4f2c
+- heading: 5. Nobody wins
+  setup: false
+  idea: Each metric column tells a different story so there is no single winner, and the department
+    filter's near-zero average hides real per-query changes.
+  paragraphs:
+  - 0
+  - 6
+  code:
+  - cell: 19
+    mode: summarize
+    why: per-query delta computation; the table it produces is the evidence
+  - cell: 21
+    mode: summarize
+    why: chart formatting; the chart speaks for itself
+  evidence:
+    cell: 19
+    says: Every query the department filter changed, worst first, with the aggregate effect
+      printed above it.
+    explain: true
+  hash: bbdb57beceb9

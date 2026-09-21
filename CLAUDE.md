@@ -104,6 +104,18 @@ or to the roadmap. Full rule and the not-violations:
 [`docs/adding-a-notebook.md`](docs/adding-a-notebook.md). `make review` flags candidates;
 the soft cases need your judgement.
 
+## A deck is built from a committed plan
+
+`make slides NB=…` turns a notebook into a Marp deck, published to GitHub Pages from
+`main`. What survives onto a slide is decided by `slides/<track>/<name>.yml`: which sections
+are only setup, each section's idea, which paragraphs and which code appear, which output is
+the evidence. `make review-slides NB=…` drafts that plan with a model and **writes it to a
+file** — committing it is how a person approves it. Re-running it replans only the sections
+whose source hash changed, so hand edits survive.
+
+A slide's prose is the notebook's prose. The plan's `idea` and `summary` lines are the one
+exception, and they reach a reader only after someone has read and committed them.
+
 ## Verdicts go in a panel, not a print
 
 Output whose job is a verdict — ready or blocked, pass or fail, a checklist of what is

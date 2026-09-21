@@ -2,7 +2,7 @@
 PY := .venv/bin/python
 NB ?= retrieval/01
 
-.PHONY: help setup lab run run-to scratch ship check review slides hooks
+.PHONY: help setup lab run run-to scratch ship check review slides review-slides hooks
 
 help:
 	@echo "make setup            create .venv and install everything"
@@ -15,6 +15,8 @@ help:
 	@echo "make review NB=retrieval/01  ask a model which claims the stored outputs no longer support"
 	@echo "make slides NB=retrieval/03  a Marp deck walking through the notebook -> build/slides/"
 	@echo "make slides NB=all     every deck, plus the index page GitHub Pages publishes"
+	@echo "make review-slides NB=retrieval/03  draft/update slides/<track>/NN.yml, the deck plan"
+	@echo "make review-slides NB=all   plan every notebook (one model call each)"
 	@echo "make hooks            run the notebook checks before every git commit"
 
 setup:
@@ -58,6 +60,11 @@ review:
 # Built from the stored outputs; nothing is re-run. See the script's docstring for the rules.
 slides:
 	$(PY) scripts/make_slides.py $(NB)
+
+# Advisory like `make review`: it proposes a plan, and committing it is how a
+# person approves. `make slides` reads whatever is committed.
+review-slides:
+	$(PY) scripts/review_slides.py $(NB)
 
 check:
 	.venv/bin/ruff check cbnb scripts

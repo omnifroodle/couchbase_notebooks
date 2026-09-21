@@ -1,0 +1,116 @@
+# Slide plan for notebooks/experiments/01_first_look_at_decision_models.ipynb
+#
+# Drafted by `make review-slides NB=01_first_look_at_decision_models`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/experiments/01_first_look_at_decision_models.ipynb
+summary_heading: In short
+summary:
+- A decision model answers narrow questions about text — yes or no, pick one, place on a scale
+  — with calibrated probabilities instead of prose.
+- 'It is fast and cheap enough to sit in the request path of a search: answers in about a
+  quarter of a second, network included, and twelve questions in one call take no longer than
+  one.'
+- Confidence is 1.00 on clear messages and falls below 0.5 on ambiguous ones, so your code
+  knows when to act and when to escalate.
+- 'The notebook ends on the use that brought us here: reading the intent behind a search query.'
+sections:
+- heading: 1. One call, three questions
+  setup: false
+  idea: One support message, one call, and one question of each type — showing that the answers
+    come back typed and ready for code, with nothing to parse out of prose.
+  paragraphs:
+  - 0
+  code:
+  - cell: 3
+    mode: show
+    why: the three question types and the single call are the point, and the cell is readable
+      on a slide
+  evidence:
+    cell: 3
+    says: The three typed answers — a probability, one of the supplied team names, and a number
+      between 0 and 2 — plus the model name, round-trip time and cost.
+    explain: false
+  hash: 946c2f22fb0c
+- heading: 2. What came back
+  setup: false
+  idea: 'The headline values are the short version: the full answers carry the probabilities
+    behind them, and this section shows how to read those.'
+  paragraphs:
+  - 0
+  code:
+  - cell: 5
+    mode: summarize
+    why: a JSON dump; the output is the point, not the code
+  - cell: 7
+    mode: summarize
+    why: a verification that the score is the probability-weighted mean of the levels
+  evidence:
+    cell: 5
+    says: The full JSON answers for the three questions, probabilities included.
+    explain: true
+  hash: 1f745bbea4e3
+- heading: '3. Confidence: the model saying it isn''t sure'
+  setup: false
+  idea: The same routing question over messages from obvious to hopeless shows how confidence,
+    not the answer itself, signals when the model does not know.
+  paragraphs:
+  - 0
+  code:
+  - cell: 9
+    mode: summarize
+    why: a loop building a dataframe; the table it produces is the point
+  evidence:
+    cell: 9
+    says: A table of five messages with the chosen team, the probability on each team, and
+      the confidence — concentrated on clear messages, below 0.5 on the ambiguous ones.
+    explain: true
+  hash: a557501dc5e7
+- heading: 4. How fast, and how steady
+  setup: false
+  idea: Twenty identical calls measure the round-trip time and whether identical questions
+    get identical probabilities, and a second timing run shows that a dozen questions in one
+    call cost about the same wait as one.
+  paragraphs:
+  - 0
+  - 4
+  code:
+  - cell: 12
+    mode: summarize
+    why: a timing loop; the printed statistics are the point
+  - cell: 14
+    mode: summarize
+    why: a timing comparison; the resulting table is the point
+  evidence:
+    cell: 12
+    says: The median, fastest and slowest round trips in milliseconds, the range of the billing
+      probability across 20 identical calls, and how many calls needed a retry.
+    explain: true
+  hash: 951adfd6eebd
+- heading: 5. Toward query intent
+  setup: false
+  idea: Twelve real WANDS search queries each get three intent questions — department, specificity,
+    whether an attribute is named — showing a decision model reading the query itself instead
+    of guessing from catalogue statistics.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 16
+    mode: summarize
+    why: a long cell building the questions and the table; the table is the point
+  evidence:
+    cell: 16
+    says: A table of twelve queries with the chosen department, its runner-up, the confidence,
+      the specificity score and the attribute answer.
+    explain: true
+  hash: c32534c156bf

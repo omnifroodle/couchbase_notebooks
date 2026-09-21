@@ -1,0 +1,173 @@
+# Slide plan for notebooks/enrich/02_scoring_the_extraction.ipynb
+#
+# Drafted by `make review-slides NB=02_scoring_the_extraction`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/enrich/02_scoring_the_extraction.ipynb
+summary_heading: In short
+summary:
+- This notebook measures how good an LLM's extraction of contract terms actually is, by checking
+  it against annotations lawyers made on the same contracts.
+- 'Accuracy turns out not to be one number: four fields each need their own definition of
+  correct, and they score between 80.3% and 95.0%.'
+- The ground truth needs cleaning too — 43% of the date annotations could not be parsed, and
+  those rows silently left the denominator.
+- Two cheap self-checks are tested for flagging bad extractions without a lawyer; neither
+  catches a quarter of the errors.
+- The verdict is written back onto the documents so downstream queries can avoid the shaky
+  ones.
+sections:
+- heading: 1. Enough contracts to measure something
+  setup: false
+  idea: Twenty contracts is too small a sample to measure accuracy, so the notebook downloads
+    the full CUAD set of contracts with the lawyers' annotations.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 3
+    mode: summarize
+    why: a data load; the counts in its output carry the point
+  evidence:
+    cell: 3
+    says: The loaded CUAD contract set with its annotations, large enough to measure an extraction
+      rather than just show one.
+    explain: false
+  hash: 8114cb9619b0
+- heading: 2. Extract
+  setup: false
+  idea: The extraction reuses the same fields and prompt as the earlier data-model notebook,
+    so this measures that notebook's work rather than a new attempt.
+  paragraphs:
+  - 0
+  code:
+  - cell: 5
+    mode: summarize
+    why: a 26-line extraction loop; the point is what it reuses, not the code
+  evidence:
+    cell: false
+    says: No stored output is needed; the section's point is the reuse of the earlier prompt
+      and fields.
+    explain: false
+  hash: cad96bcf59a7
+- heading: 3. What does "correct" mean?
+  setup: false
+  idea: Comparing a model's extracted value to a lawyer's marked span is a different problem
+    for each field, so each field gets its own explicit rule.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 7
+    mode: summarize
+    why: the four rules are already laid out in the section's table; the code is plumbing
+  - cell: 8
+    mode: summarize
+    why: a scoring loop; its output table is what matters
+  evidence:
+    cell: 8
+    says: Per-field accuracy over the annotated contracts, with annotated, scored and correct
+      counts side by side.
+    explain: false
+  hash: 7410222f3198
+- heading: 4. The number that is hiding something
+  setup: false
+  idea: Many date annotations cannot be parsed, so those rows are dropped before the model
+    is judged and the printed accuracy is only over the survivors.
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code:
+  - cell: 10
+    mode: summarize
+    why: a short scan for unparseable annotations; its output is the evidence
+  evidence:
+    cell: 10
+    says: How many date annotations could not be parsed, with examples of the unparseable
+      text and what the model said.
+    explain: true
+  hash: d9c7570dedff
+- heading: 5. Where it actually fails
+  setup: false
+  idea: The fields do not fail equally, and the per-field breakdown matters more than the
+    average.
+  paragraphs:
+  - 0
+  code:
+  - cell: 12
+    mode: summarize
+    why: the counts and examples in its output are the point, not the loop
+  evidence:
+    cell: 12
+    says: Wrong answers counted per field, plus a few wrong titles shown side by side as the
+      model said versus what the lawyer marked.
+    explain: false
+  hash: 12c995d4fd3e
+- heading: 6. Production has no lawyer
+  setup: false
+  idea: Two checks that need no ground truth — is the value verbatim in the document, and
+    do two different prompts agree — are tested for their ability to flag bad extractions.
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code:
+  - cell: 14
+    mode: summarize
+    why: a simple containment check; the crosstab output carries it
+  - cell: 16
+    mode: summarize
+    why: a 22-line second extraction and comparison; the idea is in the prose
+  - cell: 17
+    mode: summarize
+    why: the accuracy-when-agree-vs-differ lines it prints are the evidence
+  evidence:
+    cell: 17
+    says: Accuracy per field when the two prompts agree versus when they differ, showing disagreement
+      is enriched for errors but fires rarely.
+    explain: true
+  hash: df3251d39dca
+- heading: 7. Write the verdict onto the document
+  setup: false
+  idea: A quality flag is only useful if a query can see it, so the confidence verdict is
+    written onto the derived document beside the value it describes.
+  paragraphs:
+  - 0
+  code:
+  - cell: 19
+    mode: summarize
+    why: a 27-line write-back; the shape of the record is described in prose
+  - cell: 20
+    mode: summarize
+    why: a short verification query; its output is the evidence
+  evidence:
+    cell: 20
+    says: Contracts counted by title confidence, split between high and review.
+    explain: false
+  hash: 621d2534d97a
+- heading: What to take from this
+  setup: false
+  idea: Accuracy is four numbers and four arguments, and a self-check is triage rather than
+    assurance.
+  paragraphs:
+  - 0
+  - 2
+  code:
+  - cell: 22
+    mode: hide
+    why: optional clean-up, not part of the story
+  evidence:
+    cell: false
+    says: No output; this section is the notebook's conclusions in prose.
+    explain: false
+  hash: ea9146f405ee

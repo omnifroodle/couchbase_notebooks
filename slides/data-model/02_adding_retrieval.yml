@@ -1,0 +1,155 @@
+# Slide plan for notebooks/data-model/02_adding_retrieval.ipynb
+#
+# Drafted by `make review-slides NB=02_adding_retrieval`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/data-model/02_adding_retrieval.ipynb
+summary_heading: In short
+summary:
+- This notebook makes the enriched contracts from data-model/01 searchable by meaning, which
+  means splitting each one into chunks and embedding those.
+- 'It starts by getting it wrong on purpose: a filter on a field the index does not carry
+  returns zero hits and no error.'
+- 'The two ways around it are a trade: filter afterwards and lose results, or copy three fields
+  down onto the chunks.'
+- With the copied fields, one request answers 'confidentiality terms, California law, signed
+  since 2015'.
+- 'The bill for that is named too: the terms now live in two places.'
+sections:
+- heading: 1. What notebook 01 left behind
+  setup: false
+  idea: The expensive extraction already happened and was stored, so this notebook reads enriched
+    documents rather than re-running a model.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 3
+    mode: summarize
+    why: connects and reads back the stored terms; the reading matters, not the plumbing
+  evidence:
+    cell: 3
+    says: the terms notebook 01 extracted, already in the database and read back as rows
+    explain: false
+  hash: d0d282854c44
+- heading: 2. Chunks, as derived documents
+  setup: false
+  idea: 'A contract is too long to embed as one vector, so the searchable unit is a chunk:
+    a derived document carrying only its text, position, embedding and parent id.'
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 5
+    mode: summarize
+    why: chunking and embedding loop; the shape of a chunk is the point, not the loop
+  - cell: 6
+    mode: summarize
+    why: index build and wait, pure setup
+  evidence:
+    cell: 6
+    says: the vector index over the chunks is built and reports every chunk indexed
+    explain: false
+  hash: 322e39bd90a9
+- heading: 3. The filter that matches nothing
+  setup: false
+  idea: Filtering a vector search on a parent-document field returns zero hits with no error,
+    because the index simply does not carry that field.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 8
+    mode: show
+    why: the failing query is short, and the prefilter on governing_law is the story
+  - cell: 10
+    mode: show
+    why: four lines; the one-call diagnosis is worth reading
+  evidence:
+    cell: 8
+    says: 'hits: 0 — an empty result set that reads like ''no contracts match'''
+    explain: true
+  hash: 4aa1f0b56e97
+- heading: 4. A search index cannot join
+  setup: false
+  idea: Because a search index scores one document at a time and cannot fetch a parent, the
+    only options are copying parent fields onto the chunks or filtering afterwards — a trade,
+    not a right answer.
+  paragraphs:
+  - 1
+  - 2
+  - 3
+  code:
+  - cell: 12
+    mode: summarize
+    why: the post-filter bookkeeping is routine; the counts it prints are the point
+  evidence:
+    cell: 12
+    says: how many of the fifty wide hits each post-filter keeps, against the five asked for
+    explain: true
+  hash: 03e80c3fcc7b
+- heading: 5. Copy down only what you filter on
+  setup: false
+  idea: Copy exactly the three fields queries filter by onto every chunk, and reference everything
+    else from the terms document at read time.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 14
+    mode: summarize
+    why: subdocument mutation plumbing; the rule in the prose is the point
+  - cell: 15
+    mode: summarize
+    why: re-index and list fields; its output is the evidence
+  evidence:
+    cell: 15
+    says: the index now lists governing_law, agreement_date and term_years alongside text
+      and embedding
+    explain: false
+  hash: 4498a8bd1908
+- heading: 6. One request, three kinds of matching
+  setup: false
+  idea: One query now combines meaning (vector), an exact value (keyword) and a range (datetime)
+    — fields that were prose before 01 ran.
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code:
+  - cell: 17
+    mode: show
+    why: the conjunction of TermQuery and DateRangeQuery beside the vector search is exactly
+      what the section is about
+  - cell: 18
+    mode: summarize
+    why: each filter on its own is a side experiment; its printed counts suffice
+  evidence:
+    cell: 17
+    says: chunks matching all three conditions, each printed with its contract, governing
+      law and date
+    explain: false
+  hash: 190395dabb5a
+- heading: What it cost
+  setup: false
+  idea: 'The denormalisation was chosen deliberately, so the bill is named: the terms now
+    live in two places, and re-extraction means rewriting the affected chunks.'
+  paragraphs:
+  - 0
+  - 1
+  - 4
+  code: []
+  evidence:
+    cell: false
+    says: this section is prose only; there is no captured output
+    explain: false
+  hash: f57eec7f8d44

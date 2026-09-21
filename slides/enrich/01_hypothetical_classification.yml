@@ -1,0 +1,168 @@
+# Slide plan for notebooks/enrich/01_hypothetical_classification.ipynb
+#
+# Drafted by `make review-slides NB=01_hypothetical_classification`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/enrich/01_hypothetical_classification.ipynb
+summary_heading: In short
+summary:
+- Putting a 1,623-path product taxonomy in an LLM prompt costs tens of thousands of tokens
+  on every call.
+- 'This notebook follows Doug Turnbull''s alternative: a small, cheap model invents a plausible
+  category path, and Couchbase vector search snaps it to the nearest real one.'
+- The trick is measured against a no-LLM baseline — embed the product title directly — on
+  150 Wayfair products with known categories.
+- The resolved category is then used as a prefilter on a real product search, which is what
+  a classification is actually for.
+sections:
+- heading: 1. The vocabulary problem
+  setup: false
+  idea: Shipping the whole taxonomy in every prompt is a recurring token tax that grows with
+    the vocabulary, which motivates not sending it at all.
+  paragraphs:
+  - 0
+  code:
+  - cell: 3
+    mode: summarize
+    why: loading the taxonomy is plumbing; its output shows the shape
+  - cell: 4
+    mode: summarize
+    why: the arithmetic is trivial; the printed estimate is the point
+  evidence:
+    cell: 4
+    says: The full taxonomy is roughly tens of thousands of tokens, multiplied by every classification,
+      before any product is described.
+    explain: true
+  hash: 575b0ece6797
+- heading: 2. Put the vocabulary in Couchbase instead
+  setup: false
+  idea: The vocabulary moves out of the prompt into the database, where each category path
+    is a document with an embedding a vector index can search in a millisecond.
+  paragraphs:
+  - 0
+  code:
+  - cell: 7
+    mode: summarize
+    why: embedding step is one line of intent; details in its comment
+  - cell: 8
+    mode: hide
+    why: connection boilerplate
+  - cell: 9
+    mode: summarize
+    why: document shape is routine upsert work
+  - cell: 11
+    mode: summarize
+    why: index creation is standard; the wait-for-index caveat is in the prose
+  evidence:
+    cell: false
+    says: No output evidence; the section's point is the architectural move, carried by its
+      prose.
+    explain: false
+  hash: da60da52e6ea
+- heading: 3. Ask a small model to make something up
+  setup: false
+  idea: The prompt describes only the shape of a category path and tells a small model to
+    invent one, with none of the real taxonomy in the prompt.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 13
+    mode: summarize
+    why: 45 lines of prompt and schema; too long for a slide, its comment carries the idea
+  evidence:
+    cell: 13
+    says: The model's invented category paths for sample products — plausible strings that
+      are mostly not in the taxonomy.
+    explain: true
+  hash: 9f7ffd3adf11
+- heading: 4. Resolve the hallucination against Couchbase
+  setup: false
+  idea: 'One vector search per classification: embed the invented path and take the nearest
+    of the 1,623 real ones as the answer.'
+  paragraphs:
+  - 0
+  code:
+  - cell: 16
+    mode: summarize
+    why: the two short functions are the whole method but 35 lines is too much to read; the
+      comment states it
+  evidence:
+    cell: 16
+    says: A table of products with their hallucinated paths, resolved real paths and similarity
+      scores.
+    explain: true
+  hash: 6fde0b854808
+- heading: 5. Does it actually beat the obvious baseline?
+  setup: false
+  idea: Against a no-LLM baseline that embeds the product title directly, the hallucinate-then-resolve
+    method is scored on exact path, department and prefix overlap using WANDS ground truth.
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code:
+  - cell: 19
+    mode: summarize
+    why: the two-method comparison is clear from its comment; the code is bookkeeping
+  - cell: 20
+    mode: summarize
+    why: scoring code is mechanical; its output table is the evidence
+  - cell: 21
+    mode: summarize
+    why: chart formatting; the plot restates the table
+  - cell: 23
+    mode: summarize
+    why: the printed wins are the point, not the pandas
+  - cell: 24
+    mode: summarize
+    why: same, for the baseline's wins
+  evidence:
+    cell: 20
+    says: A results table scoring both methods on exact path, department and prefix overlap
+      over 150 held-out products.
+    explain: true
+  hash: d8cdc63fc15a
+- heading: 6. What it cost
+  setup: false
+  idea: The vocabulary became a one-time indexing cost, and each classification now costs
+    only a short prompt plus one vector search.
+  paragraphs: []
+  code:
+  - cell: 27
+    mode: summarize
+    why: usage arithmetic; the printed comparison is the evidence
+  evidence:
+    cell: 27
+    says: The model's per-call prompt tokens set against the roughly tens of thousands of
+      tokens the taxonomy would add to every call.
+    explain: true
+  hash: 78449489e343
+- heading: 7. What the classification is actually for
+  setup: false
+  idea: 'A category label earns its keep by prefiltering product search: the same query run
+    unfiltered, filtered to the resolved department, and filtered to the resolved branch.'
+  paragraphs:
+  - 0
+  code:
+  - cell: 30
+    mode: summarize
+    why: storing products and building a second index is setup for the demo
+  - cell: 31
+    mode: summarize
+    why: the three-way comparison is described by its comment; the code is search plumbing
+  evidence:
+    cell: 31
+    says: The same query's top products under no filter, the department filter and the branch
+      filter, each labelled with where it is filed.
+    explain: true
+  hash: 5ca152b1ef51

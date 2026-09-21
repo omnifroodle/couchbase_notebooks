@@ -1,17 +1,19 @@
 name: Slides
 
-# Publishes one deck per notebook to GitHub Pages, rebuilt from the committed
-# notebooks on every push that touches them. Nothing generated is committed, so
-# a deck cannot go stale: it is a function of the notebook it came from.
+# Publishes one deck per notebook to GitHub Pages, rebuilt on every push that
+# touches a notebook or its plan. Nothing generated is committed, so a deck
+# cannot go stale: it is a function of the notebook and the plan it came from.
 #
-# No model is involved and no credential is needed. `make_slides.py` is standard
-# library only, and reads the outputs already stored in the notebooks.
+# No model is involved and no credential is needed. The plans in `slides/` were
+# drafted by one and committed by a person; `make_slides.py` only reads them,
+# along with the outputs already stored in the notebooks.
 
 on:
   push:
     branches: [main]
     paths:
       - "notebooks/**"
+      - "slides/**"
       - "scripts/make_slides.py"
       - ".github/workflows/slides.yml"
   workflow_dispatch:
@@ -38,6 +40,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      # The only dependency: the generator reads the committed slide plans.
+      - name: Install PyYAML
+        run: pip install pyyaml
 
       - name: Build a deck for every notebook
         run: python scripts/make_slides.py all

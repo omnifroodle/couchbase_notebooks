@@ -50,8 +50,10 @@ __all__ = [
     "Commentary",
     "Finding",
     "Report",
+    "SlideFinding",
     "check_audience",
     "check_claims",
+    "check_slides",
     "commentary",
     "evidence_of",
     "prose_of",
@@ -82,9 +84,23 @@ class Finding:
         return f"cell {self.cell} [{self.verdict}] {self.quote}\n    {self.why}"
 
 
+@dataclass(frozen=True)
+class SlideFinding:
+    """One slide that does not carry its part of the walkthrough."""
+
+    slide: int
+    verdict: str
+    what: str
+    why: str
+    fix: str
+
+    def __str__(self) -> str:
+        return f"slide {self.slide} [{self.verdict}] {self.what}\n    {self.why}\n    fix: {self.fix}"
+
+
 @dataclass
 class Report:
-    findings: list[Finding] = field(default_factory=list)
+    findings: list[Finding | SlideFinding] = field(default_factory=list)
     skipped: str = ""  # why the review did not run, if it did not
     model: str = ""
     label: str = "claim review"
@@ -320,6 +336,140 @@ def check_audience(
                             "author needed and the reader does not)",
                    why_hint="why a learner would not need it, in one sentence",
                    model=model, provider=provider)
+
+
+SLIDES_SYSTEM = """You are planning a slide deck that walks an audience through a technical notebook. You do not write the deck: a script builds it from the plan you produce, using the notebook's own prose, code and stored outputs.
+
+Work through the notebook one `## ` section at a time and answer, for each:
+
+1. Is this section setup -- connecting, loading data, building an index -- work that makes the notebook run rather than something the audience needs to see? If so, mark it setup and move on.
+2. What is the main idea? What is this section trying to show the reader? One sentence, written for someone who has not read the notebook.
+3. Which of its paragraphs carry that idea onto the slide? Give their numbers. Prefer the ones that introduce what the section is about over ones that qualify or digress, and choose from the paragraphs written *before* the section's evidence: the ones after it are the reading of that evidence and already appear beside it. Two short paragraphs is a full slide, one is usually right, and about 110 words is the limit.
+4. Which code helps the story, and which should be summarised? A cell is worth showing when reading it *is* the point and it is short enough to read on a slide. Everything else is summarised to its one-line comment. Most cells are summarised.
+5. What does the captured output show? Name the cell whose output is this section's evidence.
+6. Does that evidence need explaining, or does it speak for itself?
+
+Also write the deck's summary: three to five short lines telling an audience what they are about to see and why it matters. Pitch it low: assume they know what search is, not what this notebook measures. Use the notebook's own claim and result rather than inventing a stronger one.
+
+Every sentence you write will be read by the author before it reaches a slide, so write plainly and claim nothing the notebook does not. Do not invent numbers. Do not rewrite the notebook's prose: you choose which paragraphs appear, you do not edit them."""
+
+SLIDES_USER = """The notebook, by cell. Markdown cells in full, code cells with their length, and the section each belongs to:
+
+{source}
+
+=====
+
+The paragraphs available on each section's slide, numbered as you must refer to them:
+
+{paragraphs}
+
+=====
+
+Plan the deck: the summary, and an entry for every section."""
+
+
+def source_of(nb: dict[str, Any]) -> str:
+    """Prose and code, numbered by cell, for planning a deck."""
+    blocks = []
+    for i, cell in enumerate(nb.get("cells", [])):
+        text = _cell_text(cell).strip()
+        if not text:
+            continue
+        lines = text.splitlines()
+        if cell.get("cell_type") == "code":
+            head = f"[cell {i}, code, {len(lines)} lines]"
+            if len(lines) > 24:
+                text = "\n".join(lines[:24] + ["... (truncated)"])
+        else:
+            head = f"[cell {i}, markdown]"
+        blocks.append(f"{head}\n{text}")
+    return "\n\n".join(blocks)
+
+
+def check_slides(
+    sections: list[dict[str, Any]],
+    notebook: str | Path | dict[str, Any],
+    *,
+    model: str | None = None,
+    provider: str | None = None,
+) -> tuple[dict[str, Any], Report]:
+    """Plan a deck for one notebook. Returns (plan, report).
+
+    ``sections`` comes from the generator, so the model chooses paragraphs and
+    cells by the same numbering the generator will use. The plan is written to a
+    file for a person to read, edit and commit -- nothing here reaches a slide
+    on its own. Advisory and never raises, like :func:`check_claims`.
+    """
+    label = "slide plan"
+    nb, error = _load(notebook)
+    if error:
+        return {}, Report(skipped=error, label=label)
+
+    numbered = "\n\n".join(
+        f"[section '{s['title']}', cells {s['first_cell']}-{s['last_cell']}]\n"
+        + "\n".join(f"  paragraph {i}: {p}" for i, p in enumerate(s["paragraphs"]))
+        for s in sections
+    )
+
+    try:
+        from pydantic import BaseModel, Field
+
+        from cbnb.config import load_settings
+        from cbnb.llm import LLM
+
+        class _Code(BaseModel):
+            cell: int = Field(description="the [cell N] this is about")
+            mode: str = Field(description="'show' to put the code on the slide, 'summarize' for "
+                                          "its one-line comment only, 'hide' to leave it out")
+            why: str = Field(description="why, in a few words")
+
+        class _Section(BaseModel):
+            heading: str = Field(description="the section heading, copied exactly")
+            setup: bool = Field(description="true when the section only makes the notebook run")
+            idea: str = Field(description="what this section shows the reader, in one sentence")
+            paragraphs: list[int] = Field(description="the paragraph numbers that reach the slide")
+            code: list[_Code] = Field(description="one entry per code cell in the section")
+            evidence_cell: int = Field(description="the cell whose output is this section's "
+                                                   "evidence, or -1 if there is none")
+            evidence_says: str = Field(description="what that output shows, in one sentence")
+            explain: bool = Field(description="true when the evidence needs the notebook's "
+                                              "reading of it beside it")
+
+        class _Plan(BaseModel):
+            summary: list[str] = Field(description="3 to 5 short lines introducing the deck")
+            sections: list[_Section] = Field(description="one entry per section, in order")
+
+        cfg = load_settings()
+        chosen = model or os.environ.get("CBNB_REVIEW_MODEL") or cfg.llm_model or None
+        llm = LLM(provider or cfg.llm_provider, model=chosen)
+        planned = llm.structured(
+            SLIDES_USER.format(source=source_of(nb), paragraphs=numbered),
+            _Plan,
+            system=SLIDES_SYSTEM,
+            temperature=0,
+            max_tokens=16000,
+        )
+    except Exception as exc:  # noqa: BLE001 - advisory: degrade, never break
+        return {}, Report(skipped=f"{type(exc).__name__}: {_first_line(exc)}", label=label)
+
+    plan = {
+        "summary": [line.strip() for line in planned.summary],
+        "sections": [
+            {
+                "heading": s.heading.strip(),
+                "setup": bool(s.setup),
+                "idea": s.idea.strip(),
+                "paragraphs": s.paragraphs,
+                "code": [{"cell": c.cell, "mode": c.mode.strip().lower(), "why": c.why.strip()}
+                         for c in s.code],
+                "evidence": {"cell": s.evidence_cell if s.evidence_cell >= 0 else False,
+                             "says": s.evidence_says.strip(),
+                             "explain": bool(s.explain)},
+            }
+            for s in planned.sections
+        ],
+    }
+    return plan, Report(model=llm.model, label=label)
 
 
 def _load(notebook: str | Path | dict[str, Any]) -> tuple[dict[str, Any], str]:
