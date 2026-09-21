@@ -1,0 +1,156 @@
+# Slide plan for notebooks/retrieval/03_retrieve_wide_rerank_narrow.ipynb
+#
+# Drafted by `make review-slides NB=03_retrieve_wide_rerank_narrow`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/retrieval/03_retrieve_wide_rerank_narrow.ipynb
+summary_heading: In short
+summary:
+- 'A notebook about two-stage search: a cheap wide search pulls a shortlist of fifty products,
+  then a cross-encoder re-reads that shortlist and reorders it.'
+- 'The first attempt fails: reranking a three-word product name changes nothing (nDCG@10 0.774
+  to 0.769).'
+- The same model reaches 0.828 once it can also read the category path and spec text already
+  sitting on the document.
+- Throughout, recall never moves — reranking reorders what retrieval found; it cannot add
+  to it.
+- Everything is scored on 40 Wayfair queries with human judgements, running locally with no
+  API cost.
+sections:
+- heading: 1. Two models that score the same pair differently
+  setup: false
+  idea: A cross-encoder reads the query and one product together for a better relevance score,
+    but because it can only reorder the shortlist retrieval brings back, it cannot change
+    recall.
+  paragraphs:
+  - 2
+  - 3
+  code:
+  - cell: 3
+    mode: summarize
+    why: loads the benchmark data; not the point of the section
+  evidence:
+    cell: 3
+    says: A summary of the WANDS evaluation set — the queries, products and human judgements
+      the rest of the notebook scores against.
+    explain: false
+  hash: 34b63d121675
+- heading: 2. The index from `retrieval/01`, rebuilt if it is not there
+  setup: true
+  idea: Rebuild the search index from the earlier notebooks; the document written to Couchbase
+    carries spec text that the index deliberately does not.
+  paragraphs:
+  - 2
+  code:
+  - cell: 5
+    mode: summarize
+    why: stores products and ensures the index; setup work
+  evidence:
+    cell: false
+    says: No captured output is needed; this is index rebuild.
+    explain: false
+  hash: adfdd0c18082
+- heading: 3. One query, before and after
+  setup: false
+  idea: On one query, reranking pulls six of the new top ten from deep in the retrieved list
+    — the products were already found, just buried by the ordering.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 7
+    mode: summarize
+    why: defines the wide retrieval step and loads the reranker; plumbing
+  - cell: 8
+    mode: summarize
+    why: the comparison table it produces is the point, not the code
+  evidence:
+    cell: 8
+    says: A side-by-side of the hybrid top ten and the reranked top ten for 'high weight capacity
+      bunk beds', with each reranked result's original rank.
+    explain: true
+  hash: 74f52ff4de1f
+- heading: 4. Score it against the judgements
+  setup: false
+  idea: Scored against the human judgements, reranking the product name alone leaves the ranking
+    no better while recall stays fixed — exactly as the mechanism promises.
+  paragraphs:
+  - 1
+  - 4
+  - 5
+  code:
+  - cell: 11
+    mode: summarize
+    why: scoring loop over four pipelines; its output table is the evidence
+  evidence:
+    cell: 11
+    says: A table of nDCG@10, R@50, RR, P@10 and runtime for the four pipelines over the same
+      40 queries.
+    explain: true
+  hash: 46f81eb86e5e
+- heading: 5. What the reranker was given to read
+  setup: false
+  idea: The reranker had only a three-word product name to read; adding the category path
+    and the spec text already on the document lifts nDCG@10 from 0.769 to 0.828 with the same
+    model and the same candidates.
+  paragraphs:
+  - 1
+  - 2
+  - 5
+  - 6
+  code:
+  - cell: 14
+    mode: summarize
+    why: reruns the scoring with richer fields; the output table is the point
+  evidence:
+    cell: 14
+    says: 'The scores table: nDCG@10 of 0.769 reranking the name alone, 0.799 with the category
+      path, 0.828 with the spec text, at rising runtime.'
+    explain: true
+  hash: 5d710763b88e
+- heading: 6. How deep should the shortlist be?
+  setup: false
+  idea: The gain grows with how deep into the shortlist the reranker reads — from 0.787 reranking
+    ten candidates to 0.835 at a hundred — while recall stays fixed because the shortlist
+    is set beforehand.
+  paragraphs:
+  - 0
+  - 3
+  - 4
+  code:
+  - cell: 17
+    mode: summarize
+    why: depth sweep loop; its output table is the evidence
+  evidence:
+    cell: 17
+    says: nDCG@10, RR and R@100 for rerank depths 10 to 100, with R@100 identical down the
+      column.
+    explain: true
+  hash: d2c4d67416cc
+- heading: 7. The filter was a bet. The reranker is not.
+  setup: false
+  idea: Query by query, reranking's mistakes cost positions that anything downstream can recover,
+    while the filter's mistakes cost products that nothing can.
+  paragraphs:
+  - 2
+  - 4
+  - 5
+  code:
+  - cell: 20
+    mode: summarize
+    why: per-query scoring and table assembly; the output is the point
+  evidence:
+    cell: 20
+    says: Printed counts of queries helped and hurt by each approach, plus the eight queries
+      reranking moved most with their nDCG@10 under hybrid, rerank and filter.
+    explain: true
+  hash: 9c3f43b98448

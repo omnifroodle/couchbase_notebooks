@@ -70,32 +70,46 @@ partial run goes to `build/`.
 
 ### Present it: `make slides NB=retrieval/03`
 
-Writes a [Marp](https://marp.app) deck to `build/slides/<track>/<name>.md` that walks through
-the notebook: a title slide from the header (badges included), a slide per `##` section (its
-first paragraph and what each code cell does, from the cell's opening comment), a result slide
-for the last table or chart in the section, and the lead-ins of "Where to take this". The rest
-of the prose goes into speaker notes, and every slide carries a footer linking the notebook,
-Colab and Codespaces.
-
-Built from the stored outputs, so nothing runs, needs no credential, and **no model writes
-anything** — every word on a slide is already in the notebook, where the claim and audience
-reviews have been over it. Open a deck with the Marp extension for VS Code, or
+Writes a [Marp](https://marp.app) deck to `build/slides/<track>/<name>.md`, built from the
+notebook's own prose and its stored outputs. Nothing runs, no credential is needed, and **no
+model writes a word of it**. Open a deck with the Marp extension for VS Code, or
 `npx @marp-team/marp-cli@4.5.1 <deck> --html` to export HTML or PDF yourself.
-
 `make slides NB=all` builds every deck plus the `index.html` that fronts the published site.
 
-### Published: GitHub Pages
+### What goes on a slide: `slides/<track>/<name>.yml`
 
-`.github/workflows/slides.yml` runs that command on every push to `main` that touches
-`notebooks/`, renders each deck to HTML and PDF with `marp-cli`, and deploys the lot to
-GitHub Pages. Nothing generated is committed, so a deck cannot go stale — it is a function of
-the notebook it came from, and a re-ship republishes it. The workflow needs no secrets: the
-generator is standard-library Python reading committed files.
+A notebook is far too long to project. The plan says what survives, one entry per `##`
+section:
 
-In the published HTML, `p` opens the presenter view with the speaker notes and `o` gives an
-overview of the slides. The PDF carries the notes as PDF annotations.
+```yaml
+- heading: 3. One query, before and after
+  setup: false            # true drops the section: it only makes the notebook run
+  idea: On one query, reranking pulls six of the new top ten from deep in the list.
+  paragraphs: [0, 1]      # which of the section's paragraphs reach the slide
+  code:
+    - {cell: 8, mode: summarize}   # show | summarize (to its comment) | hide
+  evidence: {cell: 8, explain: true}   # whose output is the result; false for none
+  hash: 74f52ff4de1f      # the section this entry was written against
+```
 
-**One-time setup:** repo Settings → Pages → Source: **GitHub Actions**.
+`idea` and the deck's `summary` are the only text on a slide that is not the notebook's own
+prose, and both are committed by a person before they can be published.
+
+Without a plan the deck falls back to rules — first paragraph, a line per code cell, the last
+table in the section — and says so. That keeps a new notebook presentable the day it lands.
+
+### Drafting a plan: `make review-slides NB=retrieval/03`
+
+Asks a model to work through the notebook section by section: is this only setup, what is the
+section's main idea, which paragraphs carry it, which code is worth reading on a slide and
+which is just its comment, which output is the evidence, and does that evidence need
+explaining. It writes the plan to `slides/` for you to read, edit and commit.
+
+**Run it again after editing a notebook and it updates rather than overwrites.** Each entry
+carries a hash of the section it was planned against: unchanged sections keep your edits
+untouched, and only changed or new sections are replanned. The run prints which were which.
+
+Advisory in the same sense as `make review` — a model proposes, committing is how you approve.
 
 ### After a re-ship: `make review NB=enrich/01`
 

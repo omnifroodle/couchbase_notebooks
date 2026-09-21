@@ -1,0 +1,147 @@
+# Slide plan for notebooks/retrieval/01_building_hybrid_search.ipynb
+#
+# Drafted by `make review-slides NB=01_building_hybrid_search`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/retrieval/01_building_hybrid_search.ipynb
+summary_heading: In short
+summary:
+- Keyword search and vector search each fail on a product catalogue, in opposite directions
+  — this notebook builds both and then combines them.
+- One Couchbase Search index carries text, vectors and filterable fields, and answers all
+  three in a single request.
+- Four working searches run over 6,482 real Wayfair products, with no LLM calls.
+- Two test queries pick opposite winners, which is why eyeballing results cannot tell you
+  what to ship.
+sections:
+- heading: 1. One document per product
+  setup: false
+  idea: The catalogue is real Wayfair listings, and four fields per product will be indexed
+    three different ways — as analysed text, as a vector, and as exact filterable keywords.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 3
+    mode: summarize
+    why: data loading; its output matters, not its code
+  - cell: 4
+    mode: summarize
+    why: embedding and upserting 6,482 products is mechanics
+  evidence:
+    cell: 3
+    says: 'The loaded catalogue: 6,482 products across departments, with a sample of the short
+      text each is indexed by.'
+    explain: false
+  hash: 25616686ac9f
+- heading: 2. One index for all of it
+  setup: false
+  idea: A single scope-level Search index holds the vector, the analysed text and the filterable
+    keyword fields together, which is what makes a single-request hybrid query possible.
+  paragraphs:
+  - 0
+  code:
+  - cell: 6
+    mode: show
+    why: short and readable; the three field lists mapping to three jobs is the point
+  evidence:
+    cell: 6
+    says: The index is built and waits until it can actually answer for every document, not
+      merely exist.
+    explain: false
+  hash: 962ead7f9242
+- heading: 3. Vector search on its own
+  setup: false
+  idea: Vector search matches meaning — it nails the query where the noun matters and blurs
+    the one where the exact word matters.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 8
+    mode: summarize
+    why: 32 lines of query setup and table formatting; the results table is what matters
+  evidence:
+    cell: 8
+    says: 'Side-by-side top-5 results for the two queries: platters for ''nautical platters''
+      (none containing the word), and a queen bed among the results for ''king poster bed''.'
+    explain: true
+  hash: 12af2624d195
+- heading: 4. Keyword search on its own
+  setup: false
+  idea: A BM25 MatchQuery handles exact words precisely and fails in exactly the opposite
+    direction from vector search.
+  paragraphs:
+  - 0
+  code:
+  - cell: 11
+    mode: summarize
+    why: a thin wrapper; the results table is the evidence
+  evidence:
+    cell: 11
+    says: 'Keyword results for both queries: all king four-posters for ''king poster bed'',
+      but a nautical headboard and wall décor for ''nautical platters''.'
+    explain: true
+  hash: 6146c3e88689
+- heading: 5. Both at once, in one request
+  setup: false
+  idea: Couchbase runs the lexical query and the vector query against the same index in a
+    single request and combines the scores — no second system, no fusion code of your own.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 14
+    mode: show
+    why: short; reading the one hybrid_search call is the point
+  evidence:
+    cell: 14
+    says: Hybrid results for both queries in one round trip, alongside the earlier single-mode
+      results for comparison.
+    explain: false
+  hash: 6d742a985c2b
+- heading: 6. Narrowing it with a filter
+  setup: false
+  idea: A prefilter restricts the search to one department before the nearest-neighbour search
+    runs, so you still get k results from inside the filtered set.
+  paragraphs:
+  - 1
+  - 2
+  code:
+  - cell: 16
+    mode: show
+    why: seven lines; the TermQuery prefilter on an exact keyword value is the point
+  evidence:
+    cell: 16
+    says: The hybrid search for 'nautical platters' restricted to the Kitchen & Tabletop department.
+    explain: false
+  hash: c47048f7dc5a
+- heading: 7. Four searches, all of them plausible
+  setup: false
+  idea: All four approaches side by side on both queries produce two opposite winners — proof
+    that eyeballing a few results cannot decide what to ship.
+  paragraphs:
+  - 0
+  code:
+  - cell: 18
+    mode: summarize
+    why: a display loop; the four-way comparison table is the evidence
+  - cell: 20
+    mode: hide
+    why: optional clean-up, commented out and not part of the story
+  evidence:
+    cell: 18
+    says: 'Keyword, vector, hybrid and filtered results for each query side by side: vector
+      looks best on ''nautical platters'', keyword on ''king poster bed'', and three approaches
+      return identical lists there.'
+    explain: true
+  hash: 60d515102959

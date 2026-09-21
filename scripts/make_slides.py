@@ -13,26 +13,38 @@ which is what ``.github/workflows/slides.yml`` publishes to GitHub Pages.
 Standard library only, so CI can build the decks from the committed notebooks
 without installing this package, reaching a cluster, or holding a credential.
 
-No model is involved. Every word on a slide is already in the notebook, which
-already had its prose checked against its outputs. The deck is a condensation
-by rule:
+**What goes on a slide is decided by a plan**, ``slides/<track>/<name>.yml``,
+written by ``make review-slides`` and then edited and committed by a person. Per
+section it says whether the section is setup (dropped), its main idea, which of
+its paragraphs reach the slide, which code is shown and which is summarised to
+its one-line comment, and which output is the evidence. The deck it produces:
 
-* **Title slide** -- the header's title, subtitle, Claim, Result and Requires.
-* **One slide per ``##`` section** -- its heading, its first paragraph, and
-  what the code does, as each code cell's opening comment.
-* **A result slide** when a section's code printed a table or a chart -- the
-  last one in the section, and the bold lead-ins (or opening sentences) of the
-  prose that follows it.
+* **Title slide** -- the header's title, subtitle, Claim, Result and badges.
+* **Summary slide** -- the plan's overview of the deck, for an audience who has
+  not read the notebook.
+* **One slide per section** -- heading, main idea, the chosen paragraphs, and
+  either the chosen code beside them or a line per code cell saying what it does.
+  Code too long for one slide continues on slides of its own, split where a new
+  top-level statement starts, rather than being cut.
+* **A result slide** -- the section's evidence, its caption, and the bold
+  lead-ins of the prose underneath it.
 * **"Where to take this"** -- the bullets' bold lead-ins.
 
+Without a plan the deck is built by rule alone: first paragraph, a line per code
+cell, the last table or chart in the section. That keeps a new notebook
+presentable the day it lands, and the warning says how to do better.
+
 The rest of each section's prose goes into speaker notes. Setup and clean-up
-cells are left out. Stored outputs are used as they are; nothing is re-run.
+cells are left out. Stored outputs are used as they are; nothing is re-run. No
+model writes anything here: a slide's words come from the notebook, or from a
+plan a person has read and committed.
 """
 
 from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import html
 import json
 import re
@@ -47,6 +59,24 @@ from run_notebook import resolve_notebook  # noqa: E402
 
 #: Reading order on the index page, matching the README. Anything else sorts after.
 TRACK_ORDER = ["", "retrieval", "flows", "enrich", "data-model", "experiments"]
+
+#: Committed, hand-editable, one per notebook. See ``scripts/review_slides.py``.
+PLAN_DIR = ROOT / "slides"
+
+#: A code cell shown on a slide has to fit beside the prose. Long lines wrap, and
+#: too many of them continue on the next slide: cutting code would put something
+#: on a slide that does not do what it says. Counted in wrapped lines, since a
+#: 90-character line takes two of them in a half-width column.
+MAX_CODE_LINES = 14
+CODE_COLS = 52
+
+#: A section slide holds about this much prose before it runs off the bottom --
+#: roughly half that when code takes the other column.
+MAX_SLIDE_WORDS = 110
+MAX_COLUMN_WORDS = 55
+
+#: Past this much on one slide, the slide is set in smaller type.
+DENSE_WORDS = 85
 
 MAX_TABLE_ROWS = 8
 MAX_LEAD_WORDS = 55
@@ -63,12 +93,18 @@ style: |
   section.lead h1 {{ font-size: 52px; }}
   table {{ font-size: 18px; }}
   th, td {{ padding: 4px 10px !important; }}
+  section.dense {{ font-size: 22px; }}
   section.dense table {{ font-size: 14px; }}
+  section.dense pre {{ font-size: 12px; line-height: 1.3; }}
   section.dense th, section.dense td {{ padding: 2px 8px !important; }}
   blockquote {{ font-size: 22px; }}
   .steps {{ font-size: 20px; color: #555; }}
   .more {{ font-size: 16px; color: #888; }}
   .badges img {{ height: 28px; }}
+  .cols {{ display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; align-items: start; }}
+  .cols pre {{ font-size: 13px; line-height: 1.35; }}
+  .cols pre code {{ white-space: pre-wrap; }}
+  .cols p {{ margin-top: 0; }}
   footer {{ font-size: 13px; color: #999; }}
   footer a {{ color: #999; }}
   section.lead footer {{ display: none; }}
@@ -136,7 +172,10 @@ def _sections(cells: list[dict]) -> tuple[dict, list[dict]]:
     Returns (header cell, sections).
     """
     header, sections, current = cells[0], [], None
-    for cell in cells[1:]:
+    for index, cell in enumerate(cells):
+        if index == 0:
+            continue
+        cell = {**cell, "index": index}
         if cell["cell_type"] == "code":
             if current is not None and not _is_setup_or_cleanup(cell):
                 current["cells"].append(cell)
@@ -150,6 +189,43 @@ def _sections(cells: list[dict]) -> tuple[dict, list[dict]]:
             if chunk.strip() and current is not None:
                 current["cells"].append({**cell, "source": chunk.strip()})
     return header, sections
+
+
+def section_paragraphs(section: dict) -> list[str]:
+    """The section's prose paragraphs, numbered as a plan refers to them.
+
+    The whole section, not just the part before its evidence: a plan is written
+    before the generator knows where that split falls.
+    """
+    prose = "\n\n".join(_source(c) for c in section["cells"] if c["cell_type"] == "markdown")
+    return _paragraphs(prose)
+
+
+def section_hash(section: dict) -> str:
+    """Identifies what a plan entry was written against, so a later review can
+    tell which sections changed and leave the author's edits to the rest alone."""
+    payload = [section["title"], *(_source(c) for c in section["cells"])]
+    return hashlib.sha256("\n".join(payload).encode()).hexdigest()[:12]
+
+
+def load_plan(path: Path) -> tuple[dict, str]:
+    """(plan, warning) for one notebook. An absent or unreadable plan is not fatal."""
+    plan_path = plan_path_for(path)
+    if not plan_path.exists():
+        return {}, (f"no plan at {plan_path.relative_to(ROOT)} -- built by rule; "
+                    f"`make review-slides NB={path.stem}` writes one")
+    try:
+        import yaml
+    except ImportError:
+        return {}, "PyYAML is not installed, so the plan was ignored (pip install pyyaml)"
+    try:
+        return yaml.safe_load(plan_path.read_text()) or {}, ""
+    except Exception as exc:  # noqa: BLE001 - a broken plan must not stop a deck
+        return {}, f"{plan_path.relative_to(ROOT)} could not be read ({exc}); built by rule"
+
+
+def plan_path_for(notebook: Path) -> Path:
+    return PLAN_DIR / notebook.parent.relative_to(ROOT / "notebooks") / f"{notebook.stem}.yml"
 
 
 # --- prose -------------------------------------------------------------------
@@ -191,6 +267,33 @@ def _lead(paragraphs: list[str]) -> str:
         follow = "\n".join(f"- {item}" for item in items) if items else follow
         lead = f"{lead}\n\n{follow}"
     return lead
+
+
+def _fit(paragraphs: list[str], max_words: int) -> list[str]:
+    """As many whole paragraphs as fit a slide, and never fewer than one."""
+    kept, words = [], 0
+    for paragraph in paragraphs:
+        count = len(paragraph.split())
+        if kept and words + count > max_words:
+            break
+        kept.append(paragraph)
+        words += count
+    return kept or paragraphs[:1]
+
+
+def _code_height(text: str) -> int:
+    """How many lines a code block takes once long lines have wrapped."""
+    return sum(max(1, -(-len(line) // CODE_COLS)) for line in text.splitlines())
+
+
+def _dense(*parts: str) -> str:
+    """The directive that sets a crowded slide in smaller type, or ""."""
+    text = "\n".join(parts)
+    rows = sum(1 for line in text.splitlines() if line.startswith("|"))
+    code = _code_height(text) if "```" in text else 0
+    if len(text.split()) > DENSE_WORDS or rows > 7 or code > 12:
+        return "<!-- _class: dense -->\n\n"
+    return ""
 
 
 def _takeaways(prose: str) -> list[str]:
@@ -266,9 +369,59 @@ def _html_table(markup: str) -> tuple[str, str]:
     return table, " ".join(parser.caption.split())
 
 
-def _last_output(cells: list[dict]) -> tuple[int, dict] | None:
-    """Index (within ``cells``) and payload of the section's last table or chart."""
-    for i in range(len(cells) - 1, -1, -1):
+_MD_TABLE = re.compile(r"^\|.+\|\s*\n\|[\s:|-]+\|\s*\n(?:\|.*\|\s*\n?)+", re.M)
+
+
+def _authored_table(prose: str) -> str:
+    """A table the author wrote in the prose. Their own condensation beats a dumped one."""
+    match = _MD_TABLE.search(prose)
+    return match.group(0).strip() if match else ""
+
+
+def _code_panels(cell: dict) -> list[str]:
+    """One code cell's source, in slide-sized panels.
+
+    Split only where a blank line is followed by an unindented line, so a
+    function, a docstring or a dict literal is never cut down the middle: half a
+    def on a slide is code that does not do what it says. The opening comment
+    goes -- the slide's prose already says what the cell does. A block longer
+    than the cap stays whole on a slide of its own, in smaller type.
+    """
+    lines = _source(cell).splitlines()
+    while lines and (lines[0].lstrip().startswith("#") or not lines[0].strip()):
+        lines.pop(0)
+
+    blocks, current = [], []
+    for line in "\n".join(lines).strip().splitlines():
+        if not line.strip():
+            current.append(line)
+            continue
+        # A new top-level statement: the only safe place to break.
+        if current and not line[:1].isspace() and not current[-1].strip():
+            blocks.append("\n".join(current).strip())
+            current = []
+        current.append(line)
+    if current:
+        blocks.append("\n".join(current).strip())
+
+    panels: list[str] = []
+    for block in blocks:
+        height = _code_height(block)
+        if panels and _code_height(panels[-1]) + 1 + height <= MAX_CODE_LINES:
+            panels[-1] += "\n\n" + block
+        else:
+            panels.append(block)
+    return panels
+
+
+def _last_output(cells: list[dict], prefer: int | None = None) -> tuple[int, dict] | None:
+    """Index (within ``cells``) and payload of the section's result.
+
+    The plan's evidence cell if it named one, else the last table or chart.
+    """
+    chosen = [i for i, c in enumerate(cells) if c.get("index") == prefer]
+    order = chosen + [i for i in range(len(cells) - 1, -1, -1) if i not in chosen]
+    for i in order:
         cell = cells[i]
         if cell["cell_type"] != "code":
             continue
@@ -364,7 +517,7 @@ def write_index(decks: list[tuple[Path, dict]], out_dir: Path) -> Path:
     return out
 
 
-def build(path: Path, out_dir: Path) -> tuple[Path, int]:
+def build(path: Path, out_dir: Path) -> tuple[Path, int, str]:
     nb = json.loads(path.read_text())
     header_cell, sections = _sections(nb["cells"])
     header = _source(header_cell)
@@ -392,9 +545,21 @@ def build(path: Path, out_dir: Path) -> tuple[Path, int]:
     intro = re.sub(r"^\*\*Read\*\*.*$", "", intro, flags=re.M)
     slides.append("\n\n".join(lines) + _notes(link(intro)))
 
+    plan, warning = load_plan(path)
+    entries = {str(e.get("heading", "")).strip(): e for e in plan.get("sections") or []}
+
+    # Summary slide: the plan's overview, for an audience that has not read the
+    # notebook. Written by whoever reviewed the plan, never generated here.
+    if plan.get("summary"):
+        bullets = "\n".join(f"- {line}" for line in plan["summary"])
+        slides.append(f"## {plan.get('summary_heading', 'In short')}\n\n{bullets}")
+
     image_count = 0
     for section in sections:
         cells = section["cells"]
+        entry = entries.get(section["title"], {})
+        if entry.get("setup") or entry.get("skip"):
+            continue
         prose_cells = [c for c in cells if c["cell_type"] == "markdown"]
         is_closing = section["title"].lower().startswith("where to take this")
 
@@ -405,44 +570,81 @@ def build(path: Path, out_dir: Path) -> tuple[Path, int]:
             slides.append(f"## {section['title']}\n\n{link(body)}" + _notes(link(prose)))
             continue
 
-        found = _last_output(cells)
+        evidence = (entry.get("evidence") or {})
+        found = _last_output(cells, prefer=evidence.get("cell"))
         split_at = found[0] if found else len(cells)
         before, after = cells[:split_at + 1], cells[split_at + 1:]
 
-        # Section slide: heading, lead paragraph, what the code does.
+        # Section slide: heading, the main idea, the prose the plan kept, and
+        # either the code it chose to show or a line per cell saying what it does.
         before_prose = "\n\n".join(_source(c) for c in before if c["cell_type"] == "markdown")
-        paragraphs = _paragraphs(before_prose)
-        lead = _lead(paragraphs)
-        steps = [_comment(c) for c in before if c["cell_type"] == "code" and _comment(c)]
-        body = [f"## {section['title']}", link(lead)]
-        if steps:
-            body.append('<div class="steps">\n\n' + "\n".join(f"▸ {s}  " for s in steps)
-                        + "\n\n</div>")
-        slides.append("\n\n".join(b for b in body if b) + _notes(link(before_prose)))
+        paragraphs = section_paragraphs(section)
+        after_paragraphs = _paragraphs("\n\n".join(_source(c) for c in after
+                                                   if c["cell_type"] == "markdown"))
+        chosen = [paragraphs[i] for i in entry.get("paragraphs", []) if i < len(paragraphs)]
+        # A paragraph written under the evidence belongs on the result slide, where
+        # it already appears; on the section slide it would give the result away.
+        chosen = [p for p in chosen if p not in after_paragraphs]
+        modes = {c.get("cell"): c.get("mode", "summarize") for c in entry.get("code") or []}
+        shown = [c for c in before if c["cell_type"] == "code" and modes.get(c["index"]) == "show"]
+        steps = [_comment(c) for c in before if c["cell_type"] == "code" and _comment(c)
+                 and modes.get(c["index"], "summarize") != "hide"]
+        panels = _code_panels(shown[0]) if shown else []
 
-        if not found:
+        # Code takes half the slide, so the prose beside it gets half the budget.
+        chosen = _fit(chosen, MAX_COLUMN_WORDS if panels else MAX_SLIDE_WORDS)
+        lead = "\n\n".join(chosen) if chosen else _lead(_paragraphs(before_prose))
+        if entry.get("idea"):
+            idea = f"**{entry['idea']}**"
+            # Beside code, a long paragraph under the idea is what tips a slide
+            # over. The idea is written to carry the section on its own.
+            if panels and len(f"{idea} {lead}".split()) > MAX_COLUMN_WORDS + 25:
+                lead = ""
+            lead = idea + (f"\n\n{lead}" if lead else "")
+
+        body = [f"## {section['title']}"]
+        column = [link(lead)]
+        if steps and not panels:
+            column.append('<div class="steps">\n\n' + "\n".join(f"▸ {s}  " for s in steps)
+                          + "\n\n</div>")
+        if panels:
+            body.append('<div class="cols">\n\n' + "\n\n".join(column)
+                        + f"\n\n```python\n{panels[0]}\n```\n\n</div>")
+        else:
+            body.extend(column)
+        slide = "\n\n".join(b for b in body if b)
+        slides.append(_dense(slide) + slide + _notes(link(before_prose)))
+
+        # The rest of a long cell, a slide at a time rather than a cut.
+        for panel in panels[1:]:
+            slide = f"### {section['title']}, continued\n\n```python\n{panel}\n```"
+            slides.append(_dense(f"```\n{panel}\n```") + slide)
+
+        if not found or evidence.get("cell") is False:
             continue
 
-        # Result slide: the output, then what the notebook says about it.
+        # Result slide: the evidence, then what the notebook says about it.
         _, payload = found
         after_prose = "\n\n".join(_source(c) for c in after if c["cell_type"] == "markdown")
-        takeaways = _takeaways(after_prose)
+        takeaways = _takeaways(after_prose) if evidence.get("explain", True) else []
         body = [f"### {section['title']}"]
         if "png" in payload:
             image_count += 1
             image = out_dir / f"{path.stem}_{image_count}.png"
             image.write_bytes(base64.b64decode("".join(payload["png"])))
             body.append(f"![w:900]({image.name})")
+        elif _authored_table(after_prose):
+            # The author's own table, written under the output it summarises.
+            body.append(_authored_table(after_prose))
         else:
             table, caption = _html_table(payload["html"])
-            if table.count("\n") > 6:  # more than about five rows
-                body.insert(0, "<!-- _class: dense -->")
             if caption:
                 body.append(f"*{html.unescape(caption)}*")
             body.append(html.unescape(table))
         if takeaways:
-            body.append("\n".join(f"- {link(t)}" for t in takeaways[:4]))
-        slides.append("\n\n".join(body) + _notes(link(after_prose)))
+            body.append("\n".join(f"- {link(t)}" for t in _fit(takeaways, MAX_COLUMN_WORDS)[:4]))
+        slide = "\n\n".join(body)
+        slides.append(_dense(slide) + slide + _notes(link(after_prose)))
 
     # Marp repeats this on every slide; the title slide shows the badges instead.
     badge_link = lambda label: next(  # noqa: E731
@@ -456,7 +658,7 @@ def build(path: Path, out_dir: Path) -> tuple[Path, int]:
 
     out = out_dir / f"{path.stem}.md"
     out.write_text(FRONT_MATTER.format(footer=footer) + "\n" + "\n\n---\n\n".join(slides) + "\n")
-    return out, len(slides)
+    return out, len(slides), warning
 
 
 def main(argv: list[str]) -> int:
@@ -475,7 +677,9 @@ def main(argv: list[str]) -> int:
     for path in paths:
         out_dir = root_out / path.parent.relative_to(ROOT / "notebooks")
         out_dir.mkdir(parents=True, exist_ok=True)
-        out, count = build(path, out_dir)
+        out, count, warning = build(path, out_dir)
+        if warning:
+            print(f"    ~ {warning}")
         decks.append((out.relative_to(root_out), _header_fields(_source(json.loads(
             path.read_text())["cells"][0]))))
         print(f"{count:3} slides -> {out.relative_to(ROOT)}")
