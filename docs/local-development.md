@@ -27,6 +27,7 @@ the real file.
 | Poke at it interactively | `make scratch NB=retrieval/01` | No — a copy in `build/scratch/` |
 | Change the notebook | open `notebooks/<track>/NN_….ipynb` on purpose | Yes |
 | Publish outputs for GitHub | `make ship NB=retrieval/01` | Yes — outputs + stamp |
+| Present it | `make slides NB=retrieval/03` | No — a Marp deck in `build/slides/` |
 
 ### Test: `make run`
 
@@ -66,6 +67,35 @@ Runs the notebook fresh with the LLM cache off, writes the outputs **into** the 
 GitHub renders them, strips editor metadata, and **stamps** the notebook with a hash of its
 cell sources. Then it runs the checks. If any cell fails, the notebook is not modified — the
 partial run goes to `build/`.
+
+### Present it: `make slides NB=retrieval/03`
+
+Writes a [Marp](https://marp.app) deck to `build/slides/<track>/<name>.md` that walks through
+the notebook: a title slide from the header (badges included), a slide per `##` section (its
+first paragraph and what each code cell does, from the cell's opening comment), a result slide
+for the last table or chart in the section, and the lead-ins of "Where to take this". The rest
+of the prose goes into speaker notes, and every slide carries a footer linking the notebook,
+Colab and Codespaces.
+
+Built from the stored outputs, so nothing runs, needs no credential, and **no model writes
+anything** — every word on a slide is already in the notebook, where the claim and audience
+reviews have been over it. Open a deck with the Marp extension for VS Code, or
+`npx @marp-team/marp-cli@4.5.1 <deck> --html` to export HTML or PDF yourself.
+
+`make slides NB=all` builds every deck plus the `index.html` that fronts the published site.
+
+### Published: GitHub Pages
+
+`.github/workflows/slides.yml` runs that command on every push to `main` that touches
+`notebooks/`, renders each deck to HTML and PDF with `marp-cli`, and deploys the lot to
+GitHub Pages. Nothing generated is committed, so a deck cannot go stale — it is a function of
+the notebook it came from, and a re-ship republishes it. The workflow needs no secrets: the
+generator is standard-library Python reading committed files.
+
+In the published HTML, `p` opens the presenter view with the speaker notes and `o` gives an
+overview of the slides. The PDF carries the notes as PDF annotations.
+
+**One-time setup:** repo Settings → Pages → Source: **GitHub Actions**.
 
 ### After a re-ship: `make review NB=enrich/01`
 

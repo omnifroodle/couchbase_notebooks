@@ -2,7 +2,7 @@
 PY := .venv/bin/python
 NB ?= retrieval/01
 
-.PHONY: help setup lab run run-to scratch ship check review hooks
+.PHONY: help setup lab run run-to scratch ship check review slides hooks
 
 help:
 	@echo "make setup            create .venv and install everything"
@@ -13,6 +13,8 @@ help:
 	@echo "make ship NB=retrieval/01    execute fresh (no LLM cache), store outputs in the notebook, run checks"
 	@echo "make check            lint + notebook checks"
 	@echo "make review NB=retrieval/01  ask a model which claims the stored outputs no longer support"
+	@echo "make slides NB=retrieval/03  a Marp deck walking through the notebook -> build/slides/"
+	@echo "make slides NB=all     every deck, plus the index page GitHub Pages publishes"
 	@echo "make hooks            run the notebook checks before every git commit"
 
 setup:
@@ -52,6 +54,10 @@ ship:
 # gate a commit, and this needs an API key that `check` does not.
 review:
 	$(PY) scripts/review_notebook.py $(NB)
+
+# Built from the stored outputs; nothing is re-run. See the script's docstring for the rules.
+slides:
+	$(PY) scripts/make_slides.py $(NB)
 
 check:
 	.venv/bin/ruff check cbnb scripts

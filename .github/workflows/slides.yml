@@ -1,0 +1,72 @@
+name: Slides
+
+# Publishes one deck per notebook to GitHub Pages, rebuilt from the committed
+# notebooks on every push that touches them. Nothing generated is committed, so
+# a deck cannot go stale: it is a function of the notebook it came from.
+#
+# No model is involved and no credential is needed. `make_slides.py` is standard
+# library only, and reads the outputs already stored in the notebooks.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "notebooks/**"
+      - "scripts/make_slides.py"
+      - ".github/workflows/slides.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push supersedes one still building.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  MARP: "@marp-team/marp-cli@4.5.1"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build a deck for every notebook
+        run: python scripts/make_slides.py all
+
+      - name: Render each deck to HTML and PDF
+        run: |
+          shopt -s globstar nullglob
+          for deck in build/slides/**/*.md; do
+            out="build/site/${deck#build/slides/}"
+            mkdir -p "$(dirname "$out")"
+            # --html: the decks use <div> for the smaller type. --allow-local-files: charts.
+            npx --yes "$MARP" "$deck" --html --allow-local-files -o "${out%.md}.html"
+            npx --yes "$MARP" "$deck" --html --allow-local-files --pdf --pdf-notes \
+              -o "${out%.md}.pdf"
+          done
+          # The charts the decks reference, and the front page.
+          rsync -am --include="*/" --include="*.png" --exclude="*" build/slides/ build/site/
+          cp build/slides/index.html build/site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
