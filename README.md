@@ -50,6 +50,9 @@ reading order above and may not touch Couchbase at all.
 | --- | --- | --- |
 | [A first look at decision models](notebooks/experiments/01_first_look_at_decision_models.ipynb) | TypeSafe's Jev, reached through OpenRouter: typed yes/no, choice and scale answers with probabilities, instead of generated text. Ends on reading intent from real WANDS search queries. Needs an OpenRouter key with access to the model. | About a quarter of a second per call, network included; twelve questions cost no more time than one; confidence drops below 0.5 on ambiguous inputs |
 
+Every notebook also has a slide deck, built from its own prose and stored outputs and
+published at [omnifroodle.github.io/couchbase_notebooks](https://omnifroodle.github.io/couchbase_notebooks/) — read in a browser, or download as PDF.
+
 What's coming, and why things are arranged this way: [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Getting started
