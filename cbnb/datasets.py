@@ -10,6 +10,10 @@ A stratified sample of the products, the full taxonomy, and all 480 search
 queries are committed under ``data/`` so a notebook runs immediately. Call
 :func:`load_wands_products` with ``full=True`` to pull the complete 43k-product
 file (~86 MB) from GitHub instead.
+
+Also CUAD (contracts, below) and UCI's Online Retail II (real purchase
+histories by customer, CC BY 4.0). ``docs/datasets.md`` lists these and every
+dataset considered and turned down, with the licence reason.
 """
 
 from __future__ import annotations
@@ -514,3 +518,111 @@ def load_cuad(full: bool = False) -> ContractSet:
     if full:
         return _build_cuad(n_contracts=510, per_type=None)
     return _build_cuad(n_contracts=_CUAD_SAMPLE_SIZE)
+
+
+# --------------------------------------------------------------------------- Online Retail II
+
+ONLINE_RETAIL_URL = "https://archive.ics.uci.edu/static/public/502/online+retail+ii.zip"
+ONLINE_RETAIL_CITATION = (
+    "Chen, D. (2019). Online Retail II [Dataset]. UCI Machine Learning Repository. "
+    "https://doi.org/10.24432/C5CG6D (CC BY 4.0)."
+)
+#: Stock codes that are products. The rest are postage, fees, manual adjustments
+#: and samples ("POST", "BANK CHARGES", "M", ...), which say nothing about taste.
+_PRODUCT_CODE = re.compile(r"^\d{5}")
+_ONLINE_RETAIL_SAMPLE = 1000
+_ONLINE_RETAIL_MIN_INVOICES = 4
+_ONLINE_RETAIL_SEED = 1729
+
+
+@dataclass
+class RetailSet:
+    """Real purchase histories: who bought what, and when.
+
+    ``baskets`` has one row per invoice: ``customer_id``, ``invoice``, ``date``
+    and ``items``, the distinct product stock codes on it. ``customers`` gives
+    each customer's ``country``. ``products`` maps ``stock_code`` to its most
+    common ``description``.
+    """
+
+    baskets: pd.DataFrame
+    customers: pd.DataFrame
+    products: pd.DataFrame
+
+
+def _build_online_retail(sample: int | None) -> RetailSet:
+    """Rebuild from the upstream spreadsheet (45 MB zipped; needs ``openpyxl``).
+
+    Cancellations (invoices starting ``C``), returns (negative quantities), lines
+    with no customer, and non-product stock codes are dropped. The spreadsheet's
+    two yearly sheets overlap by nine days in December 2010; grouping by invoice
+    merges the lines that appear in both. Only customers with at least four
+    invoices are kept, since a history has to be split in two to be tested.
+    """
+    import zipfile
+
+    try:
+        import openpyxl  # noqa: F401 - pandas needs it to read .xlsx
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError("Rebuilding Online Retail II needs openpyxl: pip install openpyxl") from exc
+    with zipfile.ZipFile(_download_url(ONLINE_RETAIL_URL, "online_retail_ii.zip")) as archive:
+        with archive.open("online_retail_II.xlsx") as handle:
+            sheets = pd.read_excel(handle, sheet_name=None,
+                                   dtype={"Invoice": str, "StockCode": str, "Customer ID": str})
+    lines = pd.concat(sheets.values(), ignore_index=True).dropna(subset=["Customer ID"])
+    lines = lines[~lines.Invoice.str.startswith("C") & (lines.Quantity > 0)
+                  & lines.StockCode.str.match(_PRODUCT_CODE)]
+    lines = lines.rename(columns={"Customer ID": "customer_id", "Invoice": "invoice",
+                                  "StockCode": "stock_code", "Description": "description",
+                                  "InvoiceDate": "date", "Country": "country"})
+    lines["customer_id"] = lines.customer_id.str.removesuffix(".0")
+
+    counts = lines.groupby("customer_id").invoice.nunique()
+    eligible = sorted(counts.index[counts >= _ONLINE_RETAIL_MIN_INVOICES])
+    if sample is not None:
+        eligible = sorted(pd.Series(eligible).sample(sample, random_state=_ONLINE_RETAIL_SEED))
+    lines = lines[lines.customer_id.isin(eligible)]
+
+    baskets = (lines.groupby(["customer_id", "invoice"])
+               .agg(date=("date", "min"), items=("stock_code", lambda s: sorted(set(s))))
+               .reset_index().sort_values(["customer_id", "date"], ignore_index=True))
+    customers = lines.groupby("customer_id").country.agg(lambda s: s.mode().iloc[0]).reset_index()
+    products = (lines.dropna(subset=["description"]).groupby("stock_code").description
+                .agg(lambda s: s.mode().iloc[0].strip()).reset_index())
+    return RetailSet(baskets=baskets, customers=customers, products=products)
+
+
+def write_online_retail_sample(directory: str | Path) -> None:
+    """Write the committed sample. Run from a checkout: ``write_online_retail_sample("data")``."""
+    directory = Path(directory)
+    retail = _build_online_retail(_ONLINE_RETAIL_SAMPLE)
+    baskets = retail.baskets.assign(items=retail.baskets["items"].str.join(" "),
+                                    date=retail.baskets.date.dt.strftime("%Y-%m-%dT%H:%M"))
+    baskets.to_csv(directory / "online_retail_baskets.tsv", sep="\t", index=False)
+    retail.customers.to_csv(directory / "online_retail_customers.tsv", sep="\t", index=False)
+    retail.products.to_csv(directory / "online_retail_products.tsv", sep="\t", index=False)
+
+
+def load_online_retail(full: bool = False) -> RetailSet:
+    """Two years of real purchases from a UK online gift shop, by customer.
+
+    Defaults to the committed sample: 1,000 customers drawn at random from those
+    with at least four invoices, and every invoice they placed between December
+    2009 and December 2011. Many of the shop's customers are wholesalers, who
+    reorder the same stock; a notebook drawing conclusions should say so.
+
+    ``full=True`` downloads the upstream file and returns every customer with at
+    least four invoices, about 2,600 of them.
+    """
+    names = ("online_retail_baskets.tsv", "online_retail_customers.tsv", "online_retail_products.tsv")
+    committed = [_committed(name) for name in names]
+    if full or not all(path is not None for path in committed):
+        return _build_online_retail(None if full else _ONLINE_RETAIL_SAMPLE)
+    baskets = pd.read_csv(committed[0], sep="\t", dtype={"customer_id": str, "invoice": str},
+                          parse_dates=["date"])
+    baskets["items"] = baskets["items"].str.split(" ")
+    return RetailSet(
+        baskets=baskets,
+        customers=pd.read_csv(committed[1], sep="\t", dtype={"customer_id": str}),
+        products=pd.read_csv(committed[2], sep="\t", dtype={"stock_code": str}),
+    )

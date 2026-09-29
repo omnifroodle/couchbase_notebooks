@@ -50,6 +50,7 @@ reading order above and may not touch Couchbase at all.
 | --- | --- | --- |
 | [A first look at decision models](notebooks/experiments/01_first_look_at_decision_models.ipynb) | TypeSafe's Jev, reached through OpenRouter: typed yes/no, choice and scale answers with probabilities, instead of generated text. Ends on reading intent from real WANDS search queries. Needs an OpenRouter key with access to the model. | About a quarter of a second per call, network included; twelve questions cost no more time than one; confidence drops below 0.5 on ambiguous inputs |
 | [Is this the same customer?](notebooks/experiments/02_is_this_the_same_customer.ipynb) | Entity resolution on synthetic customer profiles. A search finds candidates for each incoming record, and Jev judges each one — compared with the search's own similarity score and with a chat model. Includes the hard cases: a son with his father's name, at his father's address. | Right customer first for 188 of 196 in reach (cosine: 137); as many right decisions as a chat model at a twentieth of the cost; can't separate a son from his father without a date of birth |
+| [Would behaviour help? How to find out](notebooks/experiments/03_would_behaviour_help.ipynb) | A method, not a verdict: how to test whether behavioural evidence improves entity resolution. Splits 1,000 real customers' purchase histories in two and asks whether the halves find each other, then simulates households — flagged as simulation. Needs no cluster, model or key. | What people buy re-links 90.3% among five candidates; when they shop, 34.1% (chance 20%). In simulated households, sharing half the baskets drops beating the housemate to 65.5% while the stranger test *rises* |
 
 Every notebook also has a slide deck, built from its own prose and stored outputs and
 published at [omnifroodle.github.io/couchbase_notebooks](https://omnifroodle.github.io/couchbase_notebooks/) — read in a browser, or download as PDF.
@@ -147,7 +148,11 @@ with `CBNB_LLM_BASE_URL`.
 | --- | --- | --- | --- |
 | [WANDS](https://github.com/wayfair/WANDS) | MIT | `retrieval/*`, `enrich/01` | Real product listings, a real 1,623-node retail taxonomy, 480 search queries, 233k relevance judgements |
 | [CUAD](https://www.atticusprojectai.org/cuad) | CC BY 4.0 | `flows/01`, `data-model/*` | 510 SEC-filed commercial contracts, annotated by lawyers for 41 clause categories — every annotation a character span |
+| [Online Retail II](https://archive.ics.uci.edu/dataset/502/online+retail+ii) | CC BY 4.0 | `experiments/03` | Two years of real purchases from a UK online gift shop, by customer. A 1,000-customer sample is committed |
 | Synthetic customer profiles | Apache 2.0 (generated here) | `experiments/02` | 1,000 known customers and 400 incoming records with the true owner of each, from [`cbnb/profiles.py`](cbnb/profiles.py). Real names, invented people, `.example` emails and 555-01xx phones |
+
+Every dataset considered, including the ones turned down and why, is in
+[`docs/datasets.md`](docs/datasets.md).
 
 Committed under [`data/`](data/) so notebooks run before anything downloads:
 
