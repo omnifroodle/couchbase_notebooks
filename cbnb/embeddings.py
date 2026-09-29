@@ -13,12 +13,18 @@ from __future__ import annotations
 
 import hashlib
 import os
+import threading
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
 
 DEFAULT_LOCAL_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+#: Serialises every call into the local model. Module-level rather than
+#: per-instance because the conflict is with torch, which is process-global:
+#: two Embedders would otherwise still collide. See :meth:`Embedder._encode_batch`.
+_LOCAL_MODEL = threading.RLock()
 
 
 class Embedder:
@@ -150,9 +156,18 @@ class Embedder:
 
     def _encode_batch(self, batch: list[str]) -> np.ndarray:
         if self.backend == "local":
-            return self._load_local().encode(
-                batch, batch_size=len(batch), convert_to_numpy=True, show_progress_bar=False
-            )
+            # One thread in the local model at a time. Torch and the Couchbase
+            # SDK are both native extensions, and interleaving them across a
+            # thread pool segfaults the interpreter -- which is exactly what a
+            # search loop does when it embeds a fresh query and then searches
+            # with it, eight tasks at once. Encoding one short query takes a few
+            # milliseconds against a network round trip, so the lock costs
+            # nothing worth measuring. The api backend is plain HTTP and needs
+            # no lock.
+            with _LOCAL_MODEL:
+                return self._load_local().encode(
+                    batch, batch_size=len(batch), convert_to_numpy=True, show_progress_bar=False
+                )
         return np.array(self._llm.embed(batch, model=self.model))  # type: ignore[union-attr]
 
     def encode_one(self, text: str, *, cache: bool = True) -> np.ndarray:

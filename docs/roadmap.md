@@ -61,6 +61,7 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-16 | `retrieval/01` building hybrid search | The mechanics, measuring nothing. |
 | 2026-09-16 | `retrieval/02` which parts helped | The measurement, reusing `01`'s index. |
 | 2026-09-16 | `flows/01` RAG you can trust | The thesis in full: a demo that works, then 820 judged questions. |
+| 2026-09-21 | `flows/03` when to stop searching | Agentic search, measured: the loop costs 4× the calls and ties single-shot; retrieving more text and answering once beats both. Numbered `03` so `flows/02` stays with chat with memory. |
 | 2026-09-16 | `data-model/01` documents that learn | Extract, attach (embedded *and* referenced), query with SQL++. |
 | 2026-09-16 | `data-model/02` adding retrieval | Chunks as derived documents; what a search index's inability to join forces. |
 | 2026-09-17 | `enrich/02` scoring the extraction | Closes the gap `data-model/01` left. Four fields, four scoring rules, and two self-checks that both fall short. |
@@ -84,7 +85,9 @@ would leave a build with no point and a test with no setup.
 
 Nothing is scheduled. In rough order of value:
 
-1. **`flows/03` — agentic search.** Search, judge the results, search again. The sceptical
+1. ~~**`flows/03` — agentic search.**~~ *Built 2026-09-21 as
+   [`flows/03`](../notebooks/flows/03_when_to_stop_searching.ipynb). Layers 4 and 5 below are
+   still open: it measured the loop once.* Search, judge the results, search again. The sceptical
    framing is the useful one: an agent loop is a bet that fixed classifiers and fixed `k` are
    too rigid, and it is expensive, so it has to beat single-shot retrieval and rerank on the
    same judgements to earn its place. Lands in `flows/` for the same reason agent memory does —
@@ -320,6 +323,14 @@ the rule has quietly died.
 
 The enforced ones live in [`adding-a-notebook.md`](adding-a-notebook.md). These are the ones
 that shape what gets written.
+
+**Show the problem before the solution, and show it running.** Not a paragraph describing what
+goes wrong — the reader's own kernel producing the bad output, with the evidence on screen.
+Only then the fix, or the theory of one. A notebook that explains a problem and then solves it
+asks the reader to take the problem on faith, and a reader who never felt it has no way to
+judge whether the solution was worth its cost. `flows/01` is the model: the demo answers one
+question beautifully before the judged set shows it is right 64% of the time. The cost of this
+rule is that every notebook carries code it then abandons; pay it.
 
 **Introduce the well-known concept in Couchbase's terms first, then build on it.** Extraction
 with an LLM needs no selling; what happens to the *document* afterwards does. A notebook that
