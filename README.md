@@ -49,6 +49,7 @@ reading order above and may not touch Couchbase at all.
 | Notebook | What it tries | Result |
 | --- | --- | --- |
 | [A first look at decision models](notebooks/experiments/01_first_look_at_decision_models.ipynb) | TypeSafe's Jev, reached through OpenRouter: typed yes/no, choice and scale answers with probabilities, instead of generated text. Ends on reading intent from real WANDS search queries. Needs an OpenRouter key with access to the model. | About a quarter of a second per call, network included; twelve questions cost no more time than one; confidence drops below 0.5 on ambiguous inputs |
+| [Is this the same customer?](notebooks/experiments/02_is_this_the_same_customer.ipynb) | Entity resolution on synthetic customer profiles. A search finds candidates for each incoming record, and Jev judges each one — compared with the search's own similarity score and with a chat model. Includes the hard cases: a son with his father's name, at his father's address. | Right customer first for 188 of 196 in reach (cosine: 137); as many right decisions as a chat model at a twentieth of the cost; can't separate a son from his father without a date of birth |
 
 Every notebook also has a slide deck, built from its own prose and stored outputs and
 published at [omnifroodle.github.io/couchbase_notebooks](https://omnifroodle.github.io/couchbase_notebooks/) — read in a browser, or download as PDF.
@@ -109,6 +110,7 @@ The shared helper package, so the notebooks show the technique and not the plumb
 | `decisions.py` | Typed questions to a System One decision model through OpenRouter's `/decisions` endpoint. Separate from `llm.py`, and always needs `OPENROUTER_API_KEY`. |
 | `embeddings.py` | Local sentence-transformers or an API endpoint. Always normalised. |
 | `datasets.py` | Openly-licensed datasets, with small samples committed so notebooks run instantly. |
+| `profiles.py` | Generates the synthetic customer profiles, with known duplicates and deliberate lookalikes. Its docstring holds every rule the noise follows. |
 | `eval.py` | Retrieval metrics via `ir-measures`/`trec_eval`, plus the judgement calls that are ours. |
 | `readiness.py` | What this environment can actually do. Live checks, and what to do when one fails. |
 | `inventory.py` | What each notebook asks for, read from the notebook files themselves. |
@@ -145,6 +147,7 @@ with `CBNB_LLM_BASE_URL`.
 | --- | --- | --- | --- |
 | [WANDS](https://github.com/wayfair/WANDS) | MIT | `retrieval/*`, `enrich/01` | Real product listings, a real 1,623-node retail taxonomy, 480 search queries, 233k relevance judgements |
 | [CUAD](https://www.atticusprojectai.org/cuad) | CC BY 4.0 | `flows/01`, `data-model/*` | 510 SEC-filed commercial contracts, annotated by lawyers for 41 clause categories — every annotation a character span |
+| Synthetic customer profiles | Apache 2.0 (generated here) | `experiments/02` | 1,000 known customers and 400 incoming records with the true owner of each, from [`cbnb/profiles.py`](cbnb/profiles.py). Real names, invented people, `.example` emails and 555-01xx phones |
 
 Committed under [`data/`](data/) so notebooks run before anything downloads:
 
