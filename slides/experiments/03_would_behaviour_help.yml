@@ -1,0 +1,163 @@
+# Slide plan for notebooks/experiments/03_would_behaviour_help.ipynb
+#
+# Drafted by `make review-slides NB=03_would_behaviour_help`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/experiments/03_would_behaviour_help.ipynb
+summary_heading: In short
+summary:
+- Can what someone buys help prove who someone is? This notebook tests behavioural evidence
+  for telling customers apart, on real purchase histories from a UK online shop.
+- 'The method: split each customer''s invoices into an earlier and a later account, and ask
+  whether the later account''s behaviour finds the earlier one among 1,000 customers.'
+- 'The result: products bought pick out the right account nine times in ten among five candidates;
+  when they shop is close to useless, and averaging it in makes the result worse.'
+- The case that matters most, telling apart people who share a home, cannot be tested on any
+  public data. A flagged simulation shows why it must be tested separately: as housemates share
+  more purchases, the stranger test improves while the housemate test collapses.
+- 'A method, not a verdict: every number here illustrates the test rather than answering it.'
+sections:
+- heading: 1. Three kinds of evidence, three hypotheses
+  setup: false
+  idea: 'Behavioural evidence comes in three kinds depending on who it belongs to, and any
+    signal can be judged beforehand on two measurable properties: distinctiveness and stability.'
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code: []
+  evidence:
+    cell: false
+    says: ''
+    explain: false
+  hash: b32feb56452f
+- heading: 2. Real purchase histories
+  setup: false
+  idea: The test data is two years of real invoices from a UK online gift shop, 1,000 customers
+    with at least four invoices each, holding only who bought what and when.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 4
+    mode: summarize
+    why: loading and dataset statistics, not worth reading line by line
+  - cell: 5
+    mode: summarize
+    why: a illustrative print of one customer's invoices, the output carries it
+  evidence:
+    cell: 4
+    says: 'The dataset''s scale: 1,000 customers, their invoice counts and the two-year date
+      range.'
+    explain: false
+  hash: 0aa5a2bc9b40
+- heading: '3. The test: split one customer in two'
+  setup: false
+  idea: With no public data linking one person's two accounts, the test splits each customer's
+    history in two and asks whether the later half's purchases find the earlier half among
+    everyone's, using TF-IDF vectors and cosine similarity.
+  paragraphs:
+  - 0
+  - 2
+  code:
+  - cell: 7
+    mode: show
+    why: short, and the split is the method the whole notebook rests on
+  - cell: 9
+    mode: summarize
+    why: vector-building machinery, the prose already explains TF-IDF and cosine
+  - cell: 11
+    mode: summarize
+    why: scoring boilerplate; its output table is the point
+  evidence:
+    cell: 11
+    says: 'The score for products bought: found first among everyone, right among five, and
+      median similarities to own account versus a stranger.'
+    explain: true
+  hash: 68d9a6176ac9
+- heading: 4. Not all behaviour is evidence
+  setup: false
+  idea: When people shop barely beats chance, and averaging that weak signal with the strong
+    product signal makes the result worse than products alone.
+  paragraphs:
+  - 0
+  code:
+  - cell: 13
+    mode: summarize
+    why: repeats the scoring pattern for a second signal; the comparison table is the point
+  evidence:
+    cell: 13
+    says: 'The three signals side by side: products bought, hour and weekday, and both averaged.'
+    explain: true
+  hash: ab833d4ae1a9
+- heading: 5. How much history, and how long ago
+  setup: false
+  idea: Accuracy rises with the length of a customer's purchase history and falls only modestly
+    with the gap between the two accounts.
+  paragraphs:
+  - 0
+  code:
+  - cell: 15
+    mode: summarize
+    why: grouping and binning code; the breakdown table is the point
+  evidence:
+    cell: 15
+    says: Right-among-five for products bought, broken down by number of invoices and by the
+      gap between the two accounts.
+    explain: true
+  hash: be62c99ffed5
+- heading: '6. The household dial: a simulation'
+  setup: false
+  idea: A simulation pairs customers into households and turns a dial of shared baskets, showing
+    separation between housemates collapsing while the stranger test improves.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 17
+    mode: summarize
+    why: one line of random pairing
+  - cell: 18
+    mode: summarize
+    why: the sweep loop is long; its output table carries the result
+  evidence:
+    cell: 18
+    says: 'The dial table: beating the housemate falls from 94.3% to 65.5% at half the baskets
+      shared (33.3% at 90%), while the stranger test rises to 95.8%.'
+    explain: true
+  hash: 24e159258e64
+- heading: 7. What this shows, and what it doesn't
+  setup: false
+  idea: The test shows products are distinctive among strangers and fade with time and thin
+    histories, but it cannot show whether behaviour separates people who share a home.
+  paragraphs:
+  - 0
+  - 1
+  code: []
+  evidence:
+    cell: false
+    says: ''
+    explain: false
+  hash: 9a700b515bad
+- heading: 8. Running the real test on your own data
+  setup: false
+  idea: 'How to run this test on your own records: labels first, each signal measured alone
+    including within households, then added to the matcher one at a time.'
+  paragraphs:
+  - 0
+  - 1
+  code: []
+  evidence:
+    cell: false
+    says: ''
+    explain: false
+  hash: 5ea5816b387b

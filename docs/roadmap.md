@@ -67,6 +67,7 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-17 | `enrich/02` scoring the extraction | Closes the gap `data-model/01` left. Four fields, four scoring rules, and two self-checks that both fall short. |
 | 2026-09-18 | `experiments/01` a first look at decision models | TypeSafe's Jev through OpenRouter's alpha `/decisions` endpoint. The first `experiments/` notebook, and the first to need no cluster. |
 | 2026-09-17 | `retrieval/03` retrieve wide, rerank narrow | A cross-encoder over the shortlist. The first attempt failed — see below — and that became the notebook's argument. |
+| 2026-09-29 | `experiments/03` would behaviour help? | Method, not verdict: a real split-and-relink test on Online Retail II, and a flagged household simulation. |
 | 2026-09-29 | `experiments/02` is this the same customer? | Jev as the judge in entity resolution, on synthetic customer profiles. First notebook of the entity-resolution thread below. |
 
 ### What the retrieval split taught
@@ -115,6 +116,7 @@ recall mechanics, judging them is where a model earns its cost, and what a resol
 | Resolve on write (`flows/`) | Candidate search plus one ~0.2 s decision fits inside a sign-up request. The profile document carries the resolved customer id. |
 | Let code compare the dates | Jev scored three same-name pairs born 24–34 years apart at 0.68–0.87. A date rule before the model, or the gap written into the state, should close most of that. Measure both. |
 | A household question | A second noul in the same call: does the new record share a household with this candidate? Routes same-surname, same-address matches to a person. Free in latency. |
+| **`experiments/03`: would behaviour help?** | Built 2026-09-29, both halves; the household dial pairs real customers at random and shares baskets between them, so it models shared orders, not shared taste. Plan as written: A notebook about *method*, because no public data can settle the question: nothing links one real person's two identities, and nothing has households. **The real half** splits each [Online Retail II](datasets.md) customer's history in time and asks whether the later half finds the earlier one, measuring how distinctive purchases are and how fast they drift. A scratch run on 2,647 customers: products bought re-link 45% first among all and 91% among five random candidates; hour and weekday barely beat chance (33% among five against 20%) and make products worse when added; 4–5-invoice histories manage 82% among five, and a gap over three months 84%. **The simulated half**, clearly flagged: a household-overlap dial swept to show where behaviour stops separating a father from a son, plus a step-by-step comparison: identity fields, then stable keys (card token, device ID), then behaviour, then household-shared signals (home IP, a shared computer), which should make family members look *more* alike. It ends on how to run the test on your own data: agent-confirmed merges as labels, what to log, and the lawful basis that IP addresses and fingerprints need. |
 | From pairs to people (`data-model/`) | Pairwise decisions are not transitive. One document per resolved person, the records it absorbed, and what happens when a later record splits a cluster. |
 
 ### `retrieval/`
@@ -396,7 +398,8 @@ Honest about the difference:
 
 Things already known to hurt.
 
-**Datasets are the real cost.** Every new corpus is licence review + loader + committed sample +
+**Datasets are the real cost.** Every dataset considered, and why it was or wasn't used, is in
+[`datasets.md`](datasets.md): add to it even when the answer is no. Every new corpus is licence review + loader + committed sample +
 citation before a single cell of technique gets written. WANDS and CUAD now cover all four
 tracks, which makes the current position look easier than it is — the next track-widening idea
 (conversations, multilingual) pays that cost again in full.
