@@ -1,0 +1,195 @@
+# Slide plan for notebooks/experiments/02_is_this_the_same_customer.ipynb
+#
+# Drafted by `make review-slides NB=02_is_this_the_same_customer`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/experiments/02_is_this_the_same_customer.ipynb
+summary_heading: In short
+summary:
+- When a sign-up, order or ticket arrives, is it someone we already know? This notebook tests
+  a decision model as the judge of that question.
+- A cheap search first finds the handful of known customers a new record could belong to;
+  the model then reads the record beside each candidate and says how likely each is to be
+  the same person.
+- It picked the right customer first for 188 of the 196 returning records the search reached,
+  against 137 by the search's own similarity score.
+- On 200 held-out records it made 151 right decisions to a chat model's 152, at a twentieth
+  of the cost and a twenty-fifth of the time.
+- It fails where the records carry no date of birth: a son then scores like his father, and
+  nothing in the records could tell them apart.
+sections:
+- heading: 1. Known customers, and the records arriving
+  setup: false
+  idea: 'The test data: 1,000 synthetic known customers and 400 incoming records whose true
+    owner is known, split between returning customers and three kinds of new people who must
+    not be linked.'
+  paragraphs:
+  - 0
+  - 2
+  - 3
+  code:
+  - cell: 3
+    mode: summarize
+    why: loading and counting the records; the output is what matters
+  - cell: 5
+    mode: summarize
+    why: side-by-side helper; the table it builds is the point, not the code
+  - cell: 7
+    mode: summarize
+    why: picking the son example is bookkeeping
+  - cell: 9
+    mode: summarize
+    why: counting variations; the table is the point
+  evidence:
+    cell: 3
+    says: 'The 400 incoming records counted by kind: returning customers plus the three kinds
+      of new people.'
+    explain: false
+  hash: a99260207e10
+- heading: 2. Finding candidates
+  setup: false
+  idea: Candidates come from two merged searches, five nearest neighbours by embedding plus
+    exact email or phone matches, and together they put the true customer within reach of
+    most returning records.
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code:
+  - cell: 11
+    mode: summarize
+    why: the ' | ' joining is described in the prose; the code is plumbing
+  - cell: 12
+    mode: summarize
+    why: embedding and nearest-neighbour mechanics, not the story
+  - cell: 13
+    mode: summarize
+    why: 26 lines of merging and counting; its printed numbers are the evidence
+  evidence:
+    cell: 13
+    says: Average candidates per record, and the share of returning records whose true customer
+      is among the candidates, from nearest neighbours alone and with exact keys added.
+    explain: true
+  hash: 1ecda745dbc1
+- heading: 3. Asking the judge
+  setup: false
+  idea: 'How the decision model is asked: one call per record, with the new record and its
+    numbered candidates as the state and one independent yes/no question per candidate.'
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 15
+    mode: summarize
+    why: 21 lines building the state and questions; the printed state and the example answer
+      carry the idea
+  - cell: 16
+    mode: summarize
+    why: assembling the example table; the table itself is the evidence
+  - cell: 18
+    mode: summarize
+    why: the sentence-writing variant is a side experiment
+  - cell: 19
+    mode: summarize
+    why: batching and timing machinery
+  evidence:
+    cell: 16
+    says: For the example record, each candidate's cosine similarity beside Jev's probability
+      of being the same person, with the true customer marked.
+    explain: false
+  hash: d53d5313b95d
+- heading: 4. Did it pick the right customer?
+  setup: false
+  idea: Each method is reduced to a top pick and a score, and the top picks are checked against
+    the truth on the returning records the search could reach.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 21
+    mode: summarize
+    why: 22 lines of scoring bookkeeping; the counts table is the evidence
+  evidence:
+    cell: 21
+    says: Top pick is the customer for 137 of 196 returning records by cosine, and 188 of
+      196 by Jev either way the record was written.
+    explain: true
+  hash: 86c526f08933
+- heading: 5. Should it link at all?
+  setup: false
+  idea: 'Picking is half the decision: a new person always has a top-ranked candidate too,
+    so each method''s score is compared across the four kinds of incoming record to see if
+    it separates returning customers from new people.'
+  paragraphs:
+  - 0
+  code:
+  - cell: 23
+    mode: summarize
+    why: quantile and separation machinery; the table is the evidence
+  - cell: 25
+    mode: summarize
+    why: the date-of-birth split is read from its small table
+  - cell: 26
+    mode: summarize
+    why: the dated pairs table speaks through its rows
+  evidence:
+    cell: 23
+    says: Each kind's median score with the 10th and 90th percentiles for cosine and Jev,
+      plus a separation number per method.
+    explain: true
+  hash: 21a000a2d040
+- heading: 6. Compared with a chat model, and with a single choice
+  setup: false
+  idea: Jev's yes/no questions are compared with a single-choice question and with a chat
+    model on held-out records, using thresholds tuned on a separate half to keep the comparison
+    honest.
+  paragraphs:
+  - 0
+  - 1
+  - 2
+  code:
+  - cell: 28
+    mode: summarize
+    why: the split-and-tune scheme is described in the prose
+  - cell: 29
+    mode: summarize
+    why: the choice question is described in the prose; the calling is machinery
+  - cell: 30
+    mode: summarize
+    why: chat-model plumbing and timing
+  - cell: 32
+    mode: summarize
+    why: 25 lines assembling the comparison; the table is the evidence
+  evidence:
+    cell: 32
+    says: Right and wrong decisions on the 200 held-out records for each method, with seconds
+      and dollars per record.
+    explain: true
+  hash: 2771cd6b5ed1
+- heading: '7. Three answers instead of two: link, ask a person, or new customer'
+  setup: false
+  idea: 'A probability supports a third answer: link high scores, create a new customer for
+    low ones, and send the middle band to a person, with both thresholds set to a 2% error
+    budget.'
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 34
+    mode: summarize
+    why: threshold search over the tuning half; the band counts are the evidence
+  evidence:
+    cell: 34
+    says: 'The two thresholds and how many held-out records each band holds: linked, sent
+      to a person, new customer, and customers the search never reached.'
+    explain: true
+  hash: 3ba9cb7a7eb2

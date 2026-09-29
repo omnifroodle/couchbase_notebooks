@@ -66,6 +66,7 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-17 | `enrich/02` scoring the extraction | Closes the gap `data-model/01` left. Four fields, four scoring rules, and two self-checks that both fall short. |
 | 2026-09-18 | `experiments/01` a first look at decision models | TypeSafe's Jev through OpenRouter's alpha `/decisions` endpoint. The first `experiments/` notebook, and the first to need no cluster. |
 | 2026-09-17 | `retrieval/03` retrieve wide, rerank narrow | A cross-encoder over the shortlist. The first attempt failed — see below — and that became the notebook's argument. |
+| 2026-09-29 | `experiments/02` is this the same customer? | Jev as the judge in entity resolution, on synthetic customer profiles. First notebook of the entity-resolution thread below. |
 
 ### What the retrieval split taught
 
@@ -98,6 +99,20 @@ Nothing is scheduled. In rough order of value:
    is already on every derived document for this.
 
 ## Backlog
+
+### Entity resolution (across tracks)
+
+Started with `experiments/02`. The two steps split naturally across tracks: finding candidates is
+recall mechanics, judging them is where a model earns its cost, and what a resolved customer
+*is* is data modelling. Worth its own track only if it passes three notebooks.
+
+| Idea | Note |
+| --- | --- |
+| Candidates on Couchbase (`retrieval/`) | `experiments/02` found candidates in memory: MiniLM top-5 over values joined by ` \| `, plus exact email/phone keys, reaching 89% of returning customers. Put it in a collection and measure what that took as given. **Which text to embed:** a scratch run on Splink's `fake_1000` (MIT, 1,000 records, 250 people) scored recall@10 0.82 for values joined by ` \| `, 0.79 for a short template, 0.74 for full sentences ("This customer is named…"), 0.71 for `key: value`, 0.57 for JSON. Template words raise the similarity floor between strangers (mean cosine 0.34 values → 0.64 sentences → 0.81 JSON). Untested with a stronger or instruction-tuned embedder, which may change it. Also: fuzzy Search on names for the sparse support tickets embeddings miss (14 of 24 misses). |
+| Resolve on write (`flows/`) | Candidate search plus one ~0.2 s decision fits inside a sign-up request. The profile document carries the resolved customer id. |
+| Let code compare the dates | Jev scored three same-name pairs born 24–34 years apart at 0.68–0.87. A date rule before the model, or the gap written into the state, should close most of that. Measure both. |
+| A household question | A second noul in the same call: does the new record share a household with this candidate? Routes same-surname, same-address matches to a person. Free in latency. |
+| From pairs to people (`data-model/`) | Pairwise decisions are not transitive. One document per resolved person, the records it absorbed, and what happens when a later record splits a cluster. |
 
 ### `retrieval/`
 
@@ -427,6 +442,14 @@ notebook. These notebooks teach approaches; they do not claim a recall breakthro
 *Caveat to clear internally:* CUAD's annotations are CC BY 4.0, but the underlying contracts are
 EDGAR filings whose licence status the authors explicitly do not warrant.
 
+**Customer profiles are synthetic.** Real ones cannot be published. Of the public person-linkage
+sets, Febrl's licence is unclear, voter-roll extracts are real people, and Splink's
+`historical_50k` is built from Wikidata's famous people, whom a language model may simply
+recognise. So `cbnb/profiles.py` generates them: real names, invented people, `.example` emails,
+555-01xx phones. Its rates are choices — same-name relatives are over-represented on purpose —
+so results are reported by kind, never as one accuracy. Checking the judge against someone
+else's noise (Splink's `fake_1000`) is open; see Still open.
+
 **Structured extraction is two notebooks.** `enrich/` is about the model's output — prompt and
 schema design, failure modes, confidence gating. `data-model/` is about the document's shape.
 They share a corpus, which halves the expensive part.
@@ -554,5 +577,16 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
   agree, because they share its blind spots — the flag fires on 18 of 241 extractions and catches
   5 of 21 errors. Two different models disagreeing should be a stronger signal, and `cbnb.llm`
   already points at either. Worth measuring before believing.
+- **The profile generator grades its own homework.** `experiments/02`'s noise is ours, and a judge
+  tuned against it may be tuned to it. Rerun the judge on Splink's `fake_1000` (MIT, labelled,
+  someone else's noise). Its labels include matches no sensible matcher accepts — a birth date a
+  year and a month off *and* a different first name — so read its ceiling before its accuracy.
+- **Jev's `choice` under-uses `none`.** Asked to pick one candidate or `none`, it linked 53 of 90
+  new people; independent yes/no questions with a threshold linked 22. Unclear whether option
+  wording would fix it, or whether a choice is simply the wrong shape when the answer is often
+  "none of these".
+- **One chat model, one run.** `experiments/02` compares Jev with `z-ai/glm-5.3` only, whose
+  latency (4.6 s) is not typical of small chat models. A fast, cheap model (`gpt-4.1-mini`,
+  Haiku) is the fairer cost comparison.
 - **`parties` is the weakest extracted field at 80%**, which nobody would have guessed. Whatever
   makes multi-value extraction harder than single-value extraction is unexamined.
