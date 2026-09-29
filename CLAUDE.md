@@ -94,6 +94,14 @@ setup and clean-up included. The markdown above it is often about the problem, n
 code. `check_notebooks.py` enforces it. The ship stamp skips a cell's leading comment
 lines, so fixing the wording needs no re-ship.
 
+## Show the problem running, then solve it
+
+Not a paragraph describing what goes wrong — the reader's own kernel producing the bad
+output. Then the fix. A reader who never felt the problem cannot judge whether the solution
+was worth its cost, and the solutions here are rarely free. This costs every notebook some
+code it then abandons; pay it. Full rule and why:
+[`docs/roadmap.md`](docs/roadmap.md#conventions).
+
 ## Don't show the reader how the notebook was made
 
 The audience is someone learning the technique, not the author. Prose covers the technique
