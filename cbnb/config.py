@@ -110,7 +110,7 @@ def how_to_fix_permanently(name: str) -> str:
                 "then stop and restart the codespace (running codespaces don't see changes)")
     if in_colab():
         return (f"update {name} in the Colab secrets panel (key icon), then "
-                "Runtime -> Restart session and run from the top")
+                "Runtime -> Disconnect and delete runtime, and run from the top")
     if source == "the .env file":
         return f"fix {name} in the repo's .env file, then restart the kernel"
     return (f"put the right value for {name} in the repo's .env file (or wherever you export "

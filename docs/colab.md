@@ -105,8 +105,10 @@ whether it looks like it belongs to a different provider.
 - **Keep going right now.** In a new cell, run `cbnb.update_setting("NANOGPT_API_KEY")` (or
   whichever name the error gave). It asks for the value in a masked box. Then re-run the
   cell that uses it — for an API key, the cell that creates `LLM()`.
-- **Fix it for good.** Correct the secret in the key-icon panel, then **Runtime → Restart
-  session** and run from the top. A running session doesn't re-read secrets.
+- **Fix it for good.** Correct the secret in the key-icon panel, then **Runtime →
+  Disconnect and delete runtime** and run from the top. A running session doesn't re-read a
+  secret it has already loaded. (*Restart session* is not enough here, and its re-run of the
+  setup cell fails on the clone it left behind.)
 
 ## Running a fork
 
