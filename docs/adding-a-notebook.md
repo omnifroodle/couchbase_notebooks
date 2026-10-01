@@ -21,8 +21,9 @@ able to open exactly one file and get a result.
 ## The rules that keep these runnable
 
 **Cell 1 is always the same bootstrap.** Copy it verbatim from an existing
-notebook. It finds `cbnb` in a local checkout, `pip install`s from GitHub on
-Colab, then installs missing dependencies and loads credentials. Tag it
+notebook. It finds `cbnb` in a local checkout, clones the repo on Colab, then
+installs missing dependencies, loads credentials and asks for any the notebook
+needs that are missing. Tag it
 **`cbnb-ephemeral`**: what it prints describes the machine that ran it, so
 `make ship` empties it and the checker fails without the tag.
 
@@ -44,7 +45,9 @@ two disagree. `extras=` is separate, and still means "just install this".
 
 **Never hardcode credentials, and never leave them in an output.** Read
 everything through `cbnb.config`. It resolves env → `.env` → Colab secrets →
-`getpass` prompt.
+`getpass` prompt. The prompts' descriptions come from the `secrets` block of
+`.devcontainer/devcontainer.json`, so a new setting described there reads the
+same on the Codespaces create page and in a Colab prompt.
 
 **Commit outputs.** GitHub renders stored outputs, and that rendering is how
 most people will read the notebook — treat it as the primary artifact. It also

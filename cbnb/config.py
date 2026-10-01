@@ -14,6 +14,7 @@ anyone editing a config file.
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 from getpass import getpass
@@ -136,6 +137,79 @@ def update_setting(name: str) -> None:
     print(f"{name} updated for this session. Re-run the cell that creates the object using it "
           f"(for an API key, the cell with LLM()). To keep it, "
           f"{how_to_fix_permanently(name)}.")
+
+
+def setting_descriptions() -> dict[str, str]:
+    """A sentence about each setting, by name.
+
+    Read from the ``secrets`` block of ``.devcontainer/devcontainer.json`` -- what
+    GitHub shows on the create-a-codespace page -- so every environment describes
+    a setting in the same words. Empty if the file is missing.
+    """
+    root = repo_root()
+    path = root / ".devcontainer" / "devcontainer.json" if root else None
+    if path is None or not path.exists():
+        return {}
+    # JSON with comments: every comment in it is a whole line.
+    text = "\n".join(line for line in path.read_text().splitlines()
+                     if not line.lstrip().startswith("//"))
+    try:
+        secrets = json.loads(text).get("secrets", {})
+    except ValueError:
+        return {}
+    return {name: spec.get("description", "") for name, spec in secrets.items()
+            if isinstance(spec, dict)}
+
+
+def ask_for_settings(names: list[str], descriptions: dict[str, str] | None = None) -> list[str]:
+    """Prompt once for each of *names* that is still unset; return the ones answered.
+
+    Secrets get a masked prompt. Answers last for this session only. A blank
+    answer leaves the setting unset, so a reader can skip one and let the
+    readiness check say what that costs.
+    """
+    if descriptions is None:
+        descriptions = setting_descriptions()
+    answered = []
+    for name in names:
+        if os.environ.get(name):
+            continue
+        label = f"{name} -- {descriptions[name]}" if descriptions.get(name) else name
+        secret = name.upper().endswith(_SECRET_SUFFIXES)
+        try:
+            value = (getpass if secret else input)(f"{label}: ").strip()
+        except EOFError:
+            # No stdin to read from (a plain script under a pipe): stop asking.
+            break
+        if value:
+            os.environ[name] = value
+            SETTING_SOURCES[name] = "a prompt in this session"
+            answered.append(name)
+    return answered
+
+
+def ask_for_provider() -> str:
+    """Ask which model provider to use, before asking for its key.
+
+    The key's name depends on the answer, so this has to come first.
+    """
+    from cbnb.llm import PROVIDERS
+
+    choices = ", ".join(PROVIDERS)
+    while True:
+        try:
+            answer = input(f"CBNB_LLM_PROVIDER -- one of {choices} [openai]: ")
+        except EOFError:
+            return os.environ.get("CBNB_LLM_PROVIDER", "openai")
+        answer = answer.strip().lower() or "openai"
+        if answer in PROVIDERS:
+            break
+        print(f"{answer!r} is not a known provider.")
+    os.environ["CBNB_LLM_PROVIDER"] = answer
+    SETTING_SOURCES["CBNB_LLM_PROVIDER"] = "a prompt in this session"
+    if answer == "custom":
+        ask_for_settings(["CBNB_LLM_BASE_URL", "CBNB_LLM_MODEL"])
+    return answer
 
 
 def mask_host(connection_string: str) -> str:

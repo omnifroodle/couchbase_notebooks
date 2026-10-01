@@ -87,9 +87,11 @@ edit/run loop — autoreloading helpers, cached LLM calls, shipping stored outpu
 Codespaces secrets, which GitHub offers to collect when you create one. See
 [`docs/codespaces.md`](docs/codespaces.md).
 
-*On Colab:* click the badge on any notebook. The first cell installs everything. Put your
-credentials in Colab's secrets manager (the key icon) using the names from
-[`.env.example`](.env.example) — or just run the notebook and answer the prompts.
+*On Colab:*
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/omnifroodle/couchbase_notebooks/blob/main/notebooks/00_check_setup.ipynb)
+— or the badge on any notebook. The first cell installs everything, then lists the settings
+that notebook needs and asks for each one. Store them as Colab secrets (the key icon) and
+it stops asking. See [`docs/colab.md`](docs/colab.md).
 
 Nothing is hardcoded and nothing is required up front: every setting resolves from the
 environment (where Codespaces secrets land), then `.env`, then Colab secrets, then an
