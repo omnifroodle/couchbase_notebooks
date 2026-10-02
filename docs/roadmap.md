@@ -86,7 +86,28 @@ would leave a build with no point and a test with no setup.
 
 Nothing is scheduled. In rough order of value:
 
-1. ~~**`flows/03` — agentic search.**~~ *Built 2026-09-21 as
+1. **`enrich/03` — read the spec sheet, then ask a judge.** *Drafted 2026-10-02 as
+   [`enrich/03`](../notebooks/enrich/03_read_the_spec_sheet.ipynb); see its PR.* Picks up two
+   things `enrich/01` leaves open, without rewriting its argument. **Features on both sides:**
+   `enrich/01` classifies from a bare product name, and a side experiment (Still open, below)
+   showed `product_features` lifts the no-LLM baseline far more than the hallucination, so
+   part of the headline gap is the name being thin. **A judge over real categories:** Jev
+   (`experiments/01`) picks one path from a shortlist of real ones, built three ways — the
+   resolved paths of three hallucinated guesses; the ten paths nearest the name + features
+   embedding, with no chat model at all; the ten nearest the hallucinated path. Scored on 300
+   products against the same truth as `enrich/01`, with paired fixed/broke sign tests rather
+   than a percentage gap, because two runs of `enrich/01` a day apart moved department accuracy
+   by two points on 150. Open: Jev's yes/no per candidate against its single `choice`
+   (`experiments/02` found yes/no better, but that task needed a "none" answer, and this one
+   never does). *Judging only when the first resolution scores low* was checked 2026-10-02,
+   outside the notebook, on `enrich/03`'s 300 products: the nearest-path similarity predicts an
+   exact match with AUC 0.61 (0.65 for the department), and Jev improves every fifth of the
+   score range, the top one included (43% → 52% exact). So the trade-off is a straight line —
+   judging the lowest-scoring half reaches 36.3% exact against 43.7% for judging everything —
+   with no point where a minority of calls buys most of the gain, and the judge is the cheap
+   part anyway. Not worth a section; the score-alone half of it is `enrich/01`'s bonus, kept
+   because it is the question a reader asks (AUC 0.57 there, from the name only).
+2. ~~**`flows/03` — agentic search.**~~ *Built 2026-09-21 as
    [`flows/03`](../notebooks/flows/03_when_to_stop_searching.ipynb). Layers 4 and 5 below are
    still open: it measured the loop once.* Search, judge the results, search again. The sceptical
    framing is the useful one: an agent loop is a bet that fixed classifiers and fixed `k` are
@@ -96,9 +117,9 @@ Nothing is scheduled. In rough order of value:
    and it needs evaluation layers 4 (trajectory) and 5 (stability), neither of which
    any notebook has yet. Plain vector search already drifts ~0.005 nDCG between runs; an agent
    deciding when to stop will drift further, so one run of it proves nothing.
-2. **`flows/02` — chat with memory.** Working vs. durable memory, recall over past turns, what
+3. **`flows/02` — chat with memory.** Working vs. durable memory, recall over past turns, what
    to forget. Needs a conversation corpus, which is the usual blocker.
-3. **`data-model/03` — schema evolution.** Re-extract with a better prompt; the interesting
+4. **`data-model/03` — schema evolution.** Re-extract with a better prompt; the interesting
    question is which documents *changed*, which is a diff rather than a rebuild. `extracted_at`
    is already on every derived document for this.
 
@@ -561,7 +582,8 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
   all, lifts department accuracy 48.7% → 61.3% while *dropping* exact path 18.0% → 14.7%. So
   part of the headline gap is the title being thin rather than the hallucination step working.
   Left as a suggestion in the notebook's *Where to take this* rather than re-shipped, because
-  the fair comparison is a 2×2 and a rewrite of the argument.
+  the fair comparison is a 2×2 and a rewrite of the argument. *Picked up 2026-10-02 by
+  `enrich/03`, as its own notebook: the 2×2 plus a judge.*
 - **`enrich/01`'s stored numbers predate the current model.** The same title-only pipeline
   scored 24.0% exact in that side experiment against 28.7% stored, with nothing changed but the
   model `.env` points at. Any re-ship moves the headline whether or not features are added.
@@ -569,6 +591,19 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
   `rating_count`, `average_rating` and `review_count` are in WANDS upstream and not in `data/`.
   Features beat description when measured together, so this is not obviously worth the size; the
   ratings fields are untested as ranking signals.
+- **A single run is not a result, and the stored prose says it is.** Three full re-ships between
+  2026-10-01 and 10-02 (same code, NanoGPT `z-ai/glm-5.3`) moved conclusions, not just
+  decimals. `flows/01`: the strict prompt went 64.4% → 70.6%, then 66.9% → 71.2%, then
+  68.8% → 69.4% — a fix, then not one. `enrich/02`: two-prompt disagreement caught 5 of 21
+  errors, then 1 of 20, then 5 of 20; `parties` scored 80.3%, 49.2%, 80.3%, 74.6% as the model
+  decorated names more or less. `experiments/02`: the chat model's completion tokens went 65 →
+  335 → 26 per record as the provider turned reasoning on and off, and its cost with them. Each
+  notebook's prose was rewritten to its own stored run every time, which is honest and
+  unstable. Options: run the model-dependent sections several times and report the spread
+  (cost × N); pin a provider that does not route; or phrase claims at the resolution the
+  noise allows ("within a few points" rather than "70.6%"). This is evaluation layer 5
+  (stability), and the run card (`cbnb.run_card()`) is only its first half: it says which
+  model, not how much the answer moves.
 - **Vector scores drift between runs — cause confirmed 2026-09-18.** Every run of `retrieval/02`
   and `03` re-upserts all 6,482 products, and the Search service re-indexes them even when the
   content is byte-identical. The approximate-neighbour structures are rebuilt, and vector

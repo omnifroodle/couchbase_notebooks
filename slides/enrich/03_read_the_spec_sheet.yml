@@ -1,0 +1,174 @@
+# Slide plan for notebooks/enrich/03_read_the_spec_sheet.ipynb
+#
+# Drafted by `make review-slides NB=03_read_the_spec_sheet`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/enrich/03_read_the_spec_sheet.ipynb
+summary_heading: In short
+summary:
+- This notebook files 300 products into a real retail category taxonomy, and compares ways
+  of picking the right category path.
+- 'It reruns an earlier comparison: embedding the product name versus asking a chat model
+  to invent a path and snapping it to the nearest real category.'
+- It then gives both methods the product's features, and replaces the nearest-neighbour step
+  with Jev, a decision model that chooses among a shortlist of real categories.
+- The judge lifts exact paths from 30.7% to 43.3%, and a pipeline with no chat model at all
+  reaches 37.7%.
+- It also counts what each method costs in tokens, time and cents.
+sections:
+- heading: 1. What a product name leaves out
+  setup: false
+  idea: A five-word product name is thin evidence; every product also carries a list of features
+    that says what it is made of and what it is for.
+  paragraphs:
+  - 0
+  code:
+  - cell: 3
+    mode: summarize
+    why: Loads the taxonomy and sample; the printed example is the point, not the loading.
+  evidence:
+    cell: 3
+    says: One product's name beside its list of features and the category path it is actually
+      filed under.
+    explain: false
+  hash: 46f510bedcdf
+- heading: 2. The categories, in Couchbase
+  setup: true
+  idea: Every one of the 1,623 category paths becomes an embedded document behind one vector
+    index, so every method's answer is a category that exists.
+  paragraphs: []
+  code:
+  - cell: 5
+    mode: summarize
+    why: Index-building plumbing; its one-line comment says what it does.
+  - cell: 6
+    mode: summarize
+    why: Helper used throughout; not the story.
+  - cell: 7
+    mode: summarize
+    why: Scoring helpers; the scores they produce are the story, not the code.
+  evidence:
+    cell: false
+    says: ''
+    explain: false
+  hash: 4d8b11473533
+- heading: 3. `enrich/01`'s comparison, on 300 products
+  setup: false
+  idea: 'The baseline comparison, rerun: embedding the name and taking the nearest category
+    loses to hallucinating a path from the name and resolving that.'
+  paragraphs:
+  - 0
+  code:
+  - cell: 9
+    mode: summarize
+    why: Mostly a long prompt; the score table it produces is the point.
+  evidence:
+    cell: 9
+    says: The three scores for the two name-only methods.
+    explain: true
+  hash: af055b2e9c3f
+- heading: 4. Give both sides the spec sheet
+  setup: false
+  idea: With the product's features added, the hallucination gains more than the embedding
+    does, so the earlier result was not just the name being thin.
+  paragraphs:
+  - 0
+  code:
+  - cell: 11
+    mode: summarize
+    why: Standard plumbing; the four-row score table is the evidence.
+  evidence:
+    cell: 11
+    says: 'The same three scores for four methods: name-only and name-plus-features, embedded
+      and hallucinated.'
+    explain: true
+  hash: 6baf9f3040b1
+- heading: 5. Was the right category in reach?
+  setup: false
+  idea: A judge can only pick the right category if it is on the shortlist, and the three ways
+    of building one put it there for 38%, 55% and 70% of products.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 13
+    mode: summarize
+    why: Long construction of the three shortlists; the reach table is the point.
+  evidence:
+    cell: 13
+    says: How often the true category is among the candidates for each of the three shortlists.
+    explain: true
+  hash: e51d5560633d
+- heading: 6. Ask a judge
+  setup: false
+  idea: Letting Jev choose one path from each shortlist beats the nearest-neighbour step for
+    all three, by amounts that follow the shortlists' reach.
+  paragraphs:
+  - 0
+  code:
+  - cell: 15
+    mode: summarize
+    why: The judge call is described in prose; the scores it produces are the evidence.
+  - cell: 16
+    mode: summarize
+    why: Table assembly; its output is read in the prose beside it.
+  evidence:
+    cell: 15
+    says: The three scores for each shortlist once Jev picks from it.
+    explain: true
+  hash: 5a2c2701814e
+- heading: 7. What each one costs
+  setup: false
+  idea: The judge is the cheap part of every pipeline; the real cost is the chat model behind
+    the guess.
+  paragraphs: []
+  code:
+  - cell: 18
+    mode: summarize
+    why: Cost-accounting plumbing; the table is the evidence.
+  evidence:
+    cell: 18
+    says: Chat-model calls and tokens, and Jev's calls, time and cost, for each method.
+    explain: true
+  hash: ae4cfa2655a8
+- heading: What to take from this
+  setup: false
+  idea: 'Features help the hallucination most, nearest-neighbour throws away reachable
+    answers, a judge is only as good as its shortlist, and the cheapest pipeline is
+    respectable — all within one run.'
+  paragraphs:
+  - 1
+  - 4
+  code: []
+  evidence:
+    cell: false
+    says: ''
+    explain: false
+  hash: 068545562234
+- heading: What produced these results
+  setup: false
+  idea: Every number came from specific models, named here, and different models would give
+    different numbers.
+  paragraphs:
+  - 0
+  code:
+  - cell: 21
+    mode: summarize
+    why: A single call; its output is the point.
+  - cell: 22
+    mode: hide
+    why: Optional clean-up, not part of the story.
+  evidence:
+    cell: 21
+    says: The run card naming the models that answered.
+    explain: false
+  hash: 4fb1814ae0b4
