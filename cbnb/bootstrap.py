@@ -109,6 +109,69 @@ def _load_colab_secrets() -> list[str]:
     return loaded
 
 
+def _where_to_keep_settings() -> str:
+    """Where a setting typed at a prompt should go so nobody asks for it again."""
+    if in_colab():
+        return ("add each as a Colab secret under the same name (key icon in the left "
+                "sidebar) and turn on notebook access")
+    if in_codespaces():
+        return ("add each at https://github.com/settings/codespaces, then stop and restart "
+                "the codespace")
+    return "add each to the repo's .env file (copy .env.example)"
+
+
+def _ask_for_missing(requires: list[str]) -> list[str]:
+    """Ask for the settings this notebook needs that nothing has supplied.
+
+    The notebook's answer to the create-a-codespace page: one list of what is
+    needed and why, then a prompt for each. Returns the names answered.
+    """
+    if os.environ.get("CBNB_NONINTERACTIVE"):
+        return []
+    from cbnb.readiness import missing_settings
+
+    names = missing_settings(requires)
+    if not names:
+        return []
+
+    from cbnb.config import ask_for_provider, ask_for_settings, setting_descriptions
+    from cbnb.llm import PROVIDERS
+    from cbnb.readout import Item, Panel
+
+    descriptions = setting_descriptions()
+    # Codespaces says "only if the provider is X"; here the provider is known.
+    descriptions.update({p.key_env: f"API key for {p.label}"
+                         for p in PROVIDERS.values() if p.key_env})
+
+    # Which key the model needs depends on the provider, so the provider is asked
+    # for first -- unless the reader already chose one -- and its key last.
+    llm_keys = missing_settings([r for r in requires if r in ("llm", "api-embeddings")])
+    choose_provider = bool(llm_keys) and not os.environ.get("CBNB_LLM_PROVIDER")
+    first = [name for name in names if not (choose_provider and name in llm_keys)]
+
+    rows = [Item("blocked", name, descriptions.get(name, "")) for name in first]
+    if choose_provider:
+        rows.append(Item("blocked", "CBNB_LLM_PROVIDER", descriptions.get("CBNB_LLM_PROVIDER", "")))
+        rows.append(Item("blocked", "an API key for that provider"))
+    Panel(
+        f"This notebook needs {len(rows)} setting{'s' if len(rows) != 1 else ''} "
+        "you haven't given it",
+        [("Asked for below", rows)],
+        summary=("Answer each prompt; a blank answer skips it. Answers last for this "
+                 f"session. To skip this next time, {_where_to_keep_settings()}."),
+        status="unknown",
+    ).show()
+
+    answered = ask_for_settings(first, descriptions)
+    if choose_provider:
+        ask_for_provider()
+        answered.append("CBNB_LLM_PROVIDER")
+        # Now names the chosen provider's key, if it needs one.
+        llm_keys = missing_settings([r for r in requires if r in ("llm", "api-embeddings")])
+        answered += ask_for_settings(llm_keys, descriptions)
+    return answered
+
+
 def _missing(requirements: list[tuple[str, str]]) -> list[str]:
     """Requirements whose module is not installed.
 
@@ -223,6 +286,7 @@ def bootstrap(
 
     autoreload = root is not None and _enable_autoreload()
     from_colab = _load_colab_secrets()
+    entered = _ask_for_missing(requires)
 
     from cbnb.config import load_settings
 
@@ -236,6 +300,8 @@ def bootstrap(
     summary = f"{where}. {cfg.summary()}"
     if from_colab:
         summary += f" | from Colab secrets: {', '.join(from_colab)}"
+    if entered:
+        summary += f" | entered this session: {', '.join(entered)}"
 
     from cbnb.readiness import NotReady, check
     from cbnb.readout import Item, Panel

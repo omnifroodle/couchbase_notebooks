@@ -55,13 +55,13 @@ On Colab, open the **key icon** in the left sidebar and add secrets named
 model provider's API key. Grant the notebook access to each one. Any other name from
 [`.env.example`](../.env.example) works the same way — for example `CBNB_LLM_PROVIDER` and
 `CBNB_LLM_MODEL` to use something other than OpenAI. The setup cell lists which names it
-loaded.
+loaded. More in [`colab.md`](colab.md).
 
 On GitHub Codespaces, use Codespaces secrets with the same names — see
 [`codespaces.md`](codespaces.md).
 
-If you skip all of these, the notebooks prompt for what they need — passwords via
-`getpass`, so nothing sensitive lands in a stored output.
+If you skip all of these, a notebook's setup cell lists what it needs and asks for each —
+passwords and keys through a masked prompt, so nothing sensitive lands in a stored output.
 
 ## Troubleshooting
 

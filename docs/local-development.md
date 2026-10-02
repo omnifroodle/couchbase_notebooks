@@ -177,6 +177,9 @@ Local and Colab share every line of code except two paths in the setup cell:
 | `git clone` of the repo when `cbnb` isn't importable | No — needs the real repo URL, and it clones what's *pushed* |
 | Reading Colab secrets (`google.colab.userdata`) | No — locally the same names come from `.env` |
 
+Asking for missing settings is *not* Colab-only: with no `.env`, a notebook opened in an
+editor asks for them the same way. `make run` never asks.
+
 So once the repo exists, one run on Colab from the badge is worth doing. It should be the
 only one.
 

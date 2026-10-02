@@ -34,6 +34,7 @@ __all__ = [
     "NotReady",
     "Result",
     "check",
+    "missing_settings",
     "report",
     "require",
 ]
@@ -76,6 +77,8 @@ class Capability:
     deep: Callable[[], tuple[bool, str, str]] | None = None
     #: bootstrap extras this capability implies.
     extras: tuple[str, ...] = ()
+    #: Names of the settings it reads that are unset. Must not raise, must not prompt.
+    unset: Callable[[], list[str]] | None = None
 
 
 # --- helpers ---------------------------------------------------------------
@@ -92,7 +95,9 @@ def _fix_setting(*names: str) -> str:
 
     listed = ", ".join(names)
     if in_colab():
-        return f"add {listed} in the Colab secrets panel (the key icon), then re-run this cell"
+        # Secrets are copied in by bootstrap, so the setup cell has to run again.
+        return (f"add {listed} in the Colab secrets panel (the key icon) with notebook access "
+                "on, then re-run the setup cell and this one")
     if in_codespaces():
         return (f"add {listed} at https://github.com/settings/codespaces, then stop and "
                 "restart the codespace (a running one does not see new secrets)")
@@ -101,9 +106,9 @@ def _fix_setting(*names: str) -> str:
 
 # --- couchbase -------------------------------------------------------------
 
-def _couchbase_shallow() -> tuple[bool, str, str]:
+def _couchbase_unset() -> list[str]:
     cfg = _settings()
-    missing = [
+    return [
         name for name, value in (
             ("CB_CONNECTION_STRING", cfg.cb_connection_string),
             ("CB_USERNAME", cfg.cb_username),
@@ -111,6 +116,11 @@ def _couchbase_shallow() -> tuple[bool, str, str]:
         )
         if not value
     ]
+
+
+def _couchbase_shallow() -> tuple[bool, str, str]:
+    cfg = _settings()
+    missing = _couchbase_unset()
     if missing:
         return False, f"not configured ({', '.join(missing)} unset)", _fix_setting(*missing)
     from cbnb.config import mask_host
@@ -151,6 +161,16 @@ def _split_auth_help(exc: Exception) -> tuple[str, str]:
     lines = str(exc).strip().splitlines()
     detail = lines[0] if lines else "the provider rejected the API key"
     return detail, "\n".join(lines[1:]).strip()
+
+
+def _llm_unset() -> list[str]:
+    cfg = _settings()
+    from cbnb.llm import PROVIDERS
+
+    provider = PROVIDERS[cfg.llm_provider]
+    if provider.key_required and not cfg.llm_api_key:
+        return [provider.key_env or "CBNB_LLM_API_KEY"]
+    return []
 
 
 def _llm_shallow() -> tuple[bool, str, str]:
@@ -256,6 +276,13 @@ def _api_embeddings_deep() -> tuple[bool, str, str]:
 
 # --- decision model --------------------------------------------------------
 
+def _decision_model_unset() -> list[str]:
+    from cbnb.decisions import KEY_ENV
+
+    _settings()  # loads .env
+    return [] if os.environ.get(KEY_ENV) else [KEY_ENV]
+
+
 def _decision_model_shallow() -> tuple[bool, str, str]:
     from cbnb.config import get
     from cbnb.decisions import KEY_ENV
@@ -331,18 +358,19 @@ CAPABILITIES: dict[str, Capability] = {
     c.name: c
     for c in [
         Capability("couchbase", "A reachable Couchbase cluster",
-                   _couchbase_shallow, _couchbase_deep),
+                   _couchbase_shallow, _couchbase_deep, unset=_couchbase_unset),
         Capability("llm", "An OpenAI-compatible model endpoint",
-                   _llm_shallow, _llm_deep),
+                   _llm_shallow, _llm_deep, unset=_llm_unset),
         Capability("local-embeddings", "Embeddings on this machine",
                    _local_embeddings_shallow, _local_embeddings_deep,
                    extras=("local-embeddings",)),
         Capability("api-embeddings", "Embeddings from the model provider",
-                   _api_embeddings_shallow, _api_embeddings_deep),
+                   _api_embeddings_shallow, _api_embeddings_deep, unset=_llm_unset),
         Capability("dataset-download", "Downloading a full dataset",
                    _dataset_download_shallow, _dataset_download_deep),
         Capability("decision-model", "A System One decision model, via OpenRouter",
-                   _decision_model_shallow, _decision_model_deep),
+                   _decision_model_shallow, _decision_model_deep,
+                   unset=_decision_model_unset),
         Capability("ram-8gb", "At least 8 GiB of memory", _ram_8gb),
     ]
 }
@@ -360,6 +388,25 @@ def check(name: str, *, deep: bool = False) -> Result:
     except Exception as exc:  # noqa: BLE001 - a probe must never break the report
         return Result(name, False, f"check failed: {exc}", "", deep)
     return Result(name, ok, detail, fix, deep and capability.deep is not None)
+
+
+def missing_settings(names: list[str]) -> list[str]:
+    """Settings the named capabilities read that are not set, without duplicates.
+
+    Only things a person can type in. A missing package, no network or too little
+    memory is not a setting, and :func:`check` still reports those.
+    """
+    missing: list[str] = []
+    for name in names:
+        capability = CAPABILITIES.get(name)
+        if capability is None or capability.unset is None:
+            continue
+        try:
+            unset = capability.unset()
+        except Exception:  # noqa: BLE001 - same contract as a probe
+            continue
+        missing += [setting for setting in unset if setting not in missing]
+    return missing
 
 
 def report(names: list[str] | None = None, *, deep: bool = True) -> list[Result]:

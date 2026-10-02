@@ -25,8 +25,9 @@ environment variables.
 To change them later: **GitHub → Settings → Codespaces → Secrets**. A running codespace only
 sees the change after it is stopped and started again.
 
-Skipped them entirely? The notebooks prompt for anything missing, with passwords through a
-masked input.
+Skipped them entirely? A notebook's setup cell lists the settings it needs that nothing
+supplied, then asks for each, with passwords and keys through a masked input. Answers last
+until the codespace stops.
 
 ## First start
 
@@ -71,11 +72,14 @@ sudo ln -sfn "$PWD/.venv/bin" /usr/local/jupyter
 
 ## How it differs from local and Colab
 
+Colab has its own guide: [`colab.md`](colab.md).
+
 | | Local | Codespaces | Colab |
 | --- | --- | --- | --- |
-| Settings from | `.env` | Codespaces secrets | Colab secrets |
+| Settings from | `.env` | Codespaces secrets | Colab secrets, or prompts |
 | Repo available as | your checkout | a full checkout | cloned by the setup cell |
 | `make run` / `make ship` | yes | yes | no |
+| Survives a restart | yes | yes, until deleted | secrets only |
 | Cost | your machine | your GitHub quota | Google's free tier |
 
 ## A key or password was rejected
