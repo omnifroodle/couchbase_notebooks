@@ -33,6 +33,7 @@ _LAZY = {
     "readout": "cbnb.readout",
     "Reranker": "cbnb.rerank",
     "agent": "cbnb.agent",
+    "run_card": "cbnb.provenance",
 }
 
 #: Names that resolve to the module itself rather than an attribute of it.

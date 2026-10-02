@@ -431,6 +431,8 @@ def _last_output(cells: list[dict], prefer: int | None = None) -> tuple[int, dic
                 return i, {"png": data["image/png"]}
             if "text/html" in data and "<table" in "".join(data["text/html"]):
                 return i, {"html": "".join(data["text/html"])}
+            if "text/markdown" in data:
+                return i, {"markdown": "".join(data["text/markdown"])}
     return None
 
 
@@ -633,6 +635,9 @@ def build(path: Path, out_dir: Path) -> tuple[Path, int, str]:
             image = out_dir / f"{path.stem}_{image_count}.png"
             image.write_bytes(base64.b64decode("".join(payload["png"])))
             body.append(f"![w:900]({image.name})")
+        elif "markdown" in payload:
+            # A run card: Markdown already, minus the quote marks that frame it in a notebook.
+            body.append(re.sub(r"(?m)^> ?", "", payload["markdown"]))
         elif _authored_table(after_prose):
             # The author's own table, written under the output it summarises.
             body.append(_authored_table(after_prose))

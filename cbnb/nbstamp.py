@@ -107,13 +107,54 @@ def clear_outputs(nb: dict[str, Any]) -> None:
             cell["execution_count"] = None
 
 
-def stamp(nb: dict[str, Any], version: str = "") -> None:
+def run_card_data(nb: dict[str, Any]) -> dict[str, Any] | None:
+    """The machine-readable copy of the notebook's run card, if it stores one.
+
+    :func:`cbnb.provenance.run_card` puts it in its output's metadata. The last
+    card wins, though a notebook should only have one.
+    """
+    found = None
+    for cell in nb.get("cells", []):
+        for output in cell.get("outputs", []) if cell.get("cell_type") == "code" else []:
+            card = ((output.get("metadata") or {}).get(STAMP_KEY) or {}).get("run_card")
+            if card is not None:
+                found = card
+    return found
+
+
+def _models(card: dict[str, Any]) -> list[dict[str, Any]]:
+    """What a card says produced the results, without what changes every run."""
+    return [{key: use.get(key) for key in ("role", "model", "provider", "served")}
+            for use in card.get("uses", [])]
+
+
+def _describe(use: dict[str, Any]) -> str:
+    served = f", served as {', '.join(use['served'])}" if use.get("served") else ""
+    return f"{use['role']}: {use['model']} via {use['provider']}{served}"
+
+
+def model_changes(before: list[dict[str, Any]] | None, after: list[dict[str, Any]]) -> list[str]:
+    """How the models behind a notebook differ from its last ship, in words."""
+    if not before:
+        return []
+    old = {_describe(u) for u in before}
+    new = {_describe(u) for u in after}
+    return ([f"no longer used -- {line}" for line in sorted(old - new)]
+            + [f"newly used     -- {line}" for line in sorted(new - old)])
+
+
+def stamp(nb: dict[str, Any], version: str = "") -> list[str]:
     """Record that ``nb``'s outputs were produced from its current sources.
 
     Also strips editor metadata and per-cell execution timestamps, so a ship
     run produces the smallest diff that still captures what changed.
+
+    Returns how the models behind the results changed since the last ship, if
+    the notebook has a run card. Advisory: a new model is a fine reason to
+    re-ship, but every sentence citing a number may now be wrong.
     """
     cleared = declares_cleared(nb)  # read before the stamp below overwrites it
+    before = (nb.get("metadata", {}).get(STAMP_KEY) or {}).get("models")
     metadata = nb.setdefault("metadata", {})
     for key in list(metadata):
         if key not in KEEP_METADATA:
@@ -136,13 +177,17 @@ def stamp(nb: dict[str, Any], version: str = "") -> None:
         # Nothing is stored, so nothing can go stale: no source hash to record.
         clear_outputs(nb)
         metadata[STAMP_KEY] = {"outputs": "cleared", "checked_at": shipped_at}
-        return
+        return []
 
+    card = run_card_data(nb)
+    models = _models(card) if card else None
     metadata[STAMP_KEY] = {
         "source_hash": source_hash(nb),
         "shipped_at": shipped_at,
         **({"cbnb_version": version} if version else {}),
+        **({"models": models} if models is not None else {}),
     }
+    return model_changes(before, models) if models is not None else []
 
 
 def verify(nb: dict[str, Any]) -> tuple[str, str]:

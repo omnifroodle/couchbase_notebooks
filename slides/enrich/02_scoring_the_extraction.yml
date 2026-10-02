@@ -18,11 +18,11 @@ summary:
 - This notebook measures how good an LLM's extraction of contract terms actually is, by checking
   it against annotations lawyers made on the same contracts.
 - 'Accuracy turns out not to be one number: four fields each need their own definition of
-  correct, and they score between 80.3% and 95.8%.'
+  correct, and they score between 74.6% and 95.8%.'
 - The ground truth needs cleaning too — 43% of the date annotations could not be parsed, and
   those rows silently left the denominator.
 - Two cheap self-checks are tested for flagging bad extractions without a lawyer; neither
-  catches a quarter of the errors.
+  catches more than a quarter of the errors.
 - The verdict is written back onto the documents so downstream queries can avoid the shaky
   ones.
 sections:

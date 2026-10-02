@@ -67,6 +67,12 @@ conclusion as its headline, rather than lines of `print`. `cbnb.bootstrap` and
 `00_check_setup` both do. Measurements and model output are not verdicts; leave them as
 tables and text.
 
+**Name the models behind the numbers.** A notebook that declares `llm`, `local-embeddings`,
+`api-embeddings` or `decision-model` ends, before its clean-up cell, with a "What produced these
+results" heading and a cell running `cbnb.run_card()`. The card lists the models actually
+called, through which provider, and whether that provider routes to another host. The checker
+fails a shipped notebook without one, and `make ship` warns when the models change.
+
 **Every code cell opens with a one-line comment saying what it does.** Plain English,
 short, about *this* cell: `# Build the Search index and wait until it's ready.` The
 markdown above a cell is often about the problem, not the code, and a setup cell's

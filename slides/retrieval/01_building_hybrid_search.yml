@@ -135,7 +135,7 @@ sections:
   - cell: 18
     mode: summarize
     why: a display loop; the four-way comparison table is the evidence
-  - cell: 20
+  - cell: 22
     mode: hide
     why: optional clean-up, commented out and not part of the story
   evidence:

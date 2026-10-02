@@ -143,6 +143,28 @@ Only verdicts. Measurements stay DataFrames, model answers stay text — a colou
 number implies a threshold nobody chose. `readout` knows nothing about what its rows mean, so
 it can be used from either side of the readiness/inventory boundary without joining them.
 
+## Every notebook names the models behind its numbers
+
+A stored result is only as meaningful as the model that produced it, and a provider can
+serve the same model name differently from one day to the next. So a notebook that declares
+`llm`, `local-embeddings`, `api-embeddings` or `decision-model` ends — before the optional
+clean-up cell — with a short "What produced these results" heading and:
+
+```python
+# Name the models that produced the results above.
+cbnb.run_card()
+```
+
+The card lists what was actually called, recorded by `LLM`, `Embedder`, `Reranker` and
+`decide()` as they run, so nothing has to be declared twice. It names the provider, and says
+when the provider routes requests to another host (NanoGPT, OpenRouter: what answered may be a
+modified build). It is Markdown, not a `Panel` — a model name is not a verdict, and GitHub keeps
+Markdown outputs but strips inline styles.
+
+`check_notebooks.py` fails a shipped notebook that uses a model and stores no card. `make ship`
+copies the card's models into the stamp and **warns** when they differ from the last ship:
+re-shipping on a new model is legitimate, but it is exactly when `make review` matters most.
+
 ## Before committing
 
 ```bash

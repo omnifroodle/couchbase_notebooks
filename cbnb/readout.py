@@ -1,5 +1,8 @@
 """A status panel for notebook output: coloured verdicts instead of a wall of text.
 
+Also :class:`RunCard`, which records what produced a notebook's results rather
+than judging them, and so carries no colour.
+
 Deliberately generic. It draws rows that are ``ok``, ``blocked`` or ``unknown``,
 with a title, a detail line and an optional note underneath, and knows nothing
 about what the rows describe. That keeps it out of the boundary between
@@ -16,7 +19,7 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass, field
 
-__all__ = ["Item", "Panel"]
+__all__ = ["Item", "Panel", "RunCard"]
 
 #: status -> (label, pill colour). Solid pills with white text read the same on
 #: light and dark themes; everything else inherits the frontend's text colour.
@@ -116,6 +119,57 @@ class Panel:
                 parts.append(_row(item))
         parts.append("</div>")
         return "".join(parts)
+
+
+@dataclass(frozen=True)
+class RunCard:
+    """A record of what produced a notebook's results, not a verdict on them.
+
+    The same weight on the page as a :class:`Panel`, but no status pills: a
+    model name is not ready or blocked, and a green pill beside one would read
+    as an endorsement. Rows are ``(label, value, detail)``; ``notes`` go
+    underneath. ``data`` is a machine-readable copy that travels in the
+    output's metadata, so tooling can read the card back out of a notebook file.
+
+    Rendered as Markdown rather than HTML, because a card's job is to survive
+    in a stored output, and GitHub's notebook view keeps Markdown and strips
+    inline styles.
+    """
+
+    headline: str
+    rows: list[tuple[str, str, str]] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    data: dict = field(default_factory=dict)
+
+    def __str__(self) -> str:
+        width = max((len(label) for label, _, _ in self.rows), default=0)
+        lines = [self.headline]
+        lines += [f"  {label:<{width}}  {value}{f'  ({detail})' if detail else ''}"
+                  for label, value, detail in self.rows]
+        lines += [f"  {note}" for note in self.notes]
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def _repr_markdown_(self) -> str:
+        lines = [f"> **{_md(self.headline)}**", ">"]
+        if self.rows:
+            lines += ["> | | model | how it ran |", "> |---|---|---|"]
+            lines += [f"> | {_md(label)} | `{_md(value)}` | {_md(detail)} |"
+                      for label, value, detail in self.rows]
+        for note in self.notes:
+            lines += [">", f"> *{_md(note)}*"]
+        return "\n".join(lines)
+
+    def _repr_mimebundle_(self, include=None, exclude=None):
+        bundle = {"text/markdown": self._repr_markdown_(), "text/plain": str(self)}
+        return bundle, {"cbnb": {"run_card": self.data}}
+
+
+def _md(text: str) -> str:
+    """Escape what would break a Markdown table cell."""
+    return str(text).replace("|", "\\|").replace("\n", " ")
 
 
 def _row(item: Item) -> str:
