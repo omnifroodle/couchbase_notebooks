@@ -135,7 +135,7 @@ def _models_label(entry: dict[str, Any]) -> str:
 
 
 def _fmt(value: float) -> str:
-    if value == int(value) and abs(value) >= 10:
+    if value == int(value):
         return f"{value:,.0f}"
     return f"{value:.3g}" if abs(value) < 1 else f"{value:,.2f}"
 

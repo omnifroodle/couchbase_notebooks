@@ -167,6 +167,33 @@ without tables, but keeps an unstyled HTML table. Its record rides in the output
 copies the card's models into the stamp and **warns** when they differ from the last ship:
 re-shipping on a new model is legitimate, but it is exactly when `make review` matters most.
 
+## One run is not a result
+
+The same code, through the same provider, has turned a six-point gain into a half-point one from
+one day to the next. Rewriting prose to each new ship chases that noise. So every uncached full
+run, ship or trial, leaves an entry in `journal/<track>/<notebook>/`, made by
+`scripts/run_notebook.py` and read by `cbnb/journal.py`. Each entry records the models, their
+token counts, and the `measures` and `claims` that the notebook declares in `metadata.cbnb`
+(syntax in [`docs/adding-a-notebook.md`](docs/adding-a-notebook.md)). Commit journal entries
+with the ship that made them.
+
+```bash
+make trial NB=flows/01 N=3     # three more samples; the notebook is untouched
+make journal NB=flows/01       # which claims held in every run, how far measures moved
+```
+
+After a re-ship, check `make journal` before rewriting anything:
+
+- A claim that held in every run stays, even if a decimal moved. Update the numbers the prose
+  quotes, and leave the argument alone.
+- A claim marked FLAPPING gets weakened or cut. Don't rewrite it to match whichever way the
+  latest run fell.
+- Quoted numbers should be no more precise than their spread across runs.
+
+`make review` sees the journal too, and flags `unstable` statements. The checker warns about
+flapping claims. The journal stays internal: prose talks only about the reader's run, never
+about runs the reader didn't see.
+
 ## Before committing
 
 ```bash

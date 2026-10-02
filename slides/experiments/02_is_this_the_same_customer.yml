@@ -23,7 +23,7 @@ summary:
 - It picked the right customer first for 188 of the 196 returning records the search reached,
   against 137 by the search's own similarity score.
 - On 200 held-out records it made 156 right decisions to a chat model's 153, at about a sixteenth
-  of the cost and under a fortieth of the time.
+  of the cost and under a twentieth of the time.
 - It fails where the records carry no date of birth: a son then scores like his father, and
   nothing in the records could tell them apart.
 sections:

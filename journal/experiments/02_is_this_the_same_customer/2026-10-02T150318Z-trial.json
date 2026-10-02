@@ -1,0 +1,71 @@
+{
+ "run_at": "2026-10-02T15:03:18Z",
+ "kind": "trial",
+ "commit": "71aef5e",
+ "dirty": true,
+ "source_hash": "c3db0bf16b7a5b8a",
+ "status": "ok",
+ "seconds": 257,
+ "cbnb_version": "0.1.0",
+ "measures": {
+  "chat $ per 1,000": 0.78664,
+  "chat completion tokens per record": 29.79,
+  "chat right decisions (of 200)": 143.0,
+  "chat seconds per record": 5.378693125006976,
+  "cosine separation": 0.63,
+  "cosine top pick right (in reach)": 137.0,
+  "jev $ per 1,000": 0.04613553000000002,
+  "jev pick-one linked new people": 55.0,
+  "jev pick-one right decisions (of 200)": 121.0,
+  "jev sent to a person (of 200)": 136.0,
+  "jev separation": 0.9,
+  "jev top pick right (in reach)": 186.0,
+  "jev top pick right, as sentences": 188.0,
+  "jev yes/no right decisions (of 200)": 152.0
+ },
+ "claims": {
+  "chat costs at least 16x jev": true,
+  "chat takes at least 40x jev's time": false,
+  "jev and chat within 10 right decisions": true,
+  "jev pick-one worse than yes/no": true,
+  "jev picks the right customer more than cosine": true,
+  "jev separates far better than cosine (+0.15)": true,
+  "values vs sentences within 5 picks": true
+ },
+ "errors": {},
+ "models": [
+  {
+   "role": "chat",
+   "model": "z-ai/glm-5.3",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 201,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 93652,
+   "completion_tokens": 5958
+  },
+  {
+   "role": "embeddings",
+   "model": "sentence-transformers/all-MiniLM-L6-v2",
+   "provider": "this machine",
+   "routed": false,
+   "calls": 1400,
+   "cached": 1400,
+   "served": [],
+   "prompt_tokens": 0,
+   "completion_tokens": 0
+  },
+  {
+   "role": "decisions",
+   "model": "typesafe/jev-1.13-20260917",
+   "provider": "OpenRouter",
+   "routed": true,
+   "calls": 1003,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 0,
+   "completion_tokens": 0
+  }
+ ]
+}

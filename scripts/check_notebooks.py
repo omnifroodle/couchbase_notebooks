@@ -173,7 +173,8 @@ def check(path: Path) -> tuple[list[str], list[str]]:
     # Advisory: a flapping claim may still be stated carefully enough. The prose
     # is for a person to judge against `make journal`.
     runs = [e for e in journal.entries(journal.name_of(path)) if e.get("status") == "ok"]
-    for claim in journal.flapping(runs):
+    declared = journal.declared(nb)[1]   # a claim since reworded is not this prose's problem
+    for claim in (c for c in journal.flapping(runs) if c in declared):
         held = sum(bool((e.get("claims") or {}).get(claim)) for e in runs if claim in (e.get("claims") or {}))
         total = sum(claim in (e.get("claims") or {}) for e in runs)
         warnings.append(f"claim {claim!r} held in {held} of {total} journaled runs -- "
