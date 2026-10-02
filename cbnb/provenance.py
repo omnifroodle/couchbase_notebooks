@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-__all__ = ["Use", "record", "reset", "run_card", "uses"]
+__all__ = ["Use", "record", "render", "reset", "run_card", "uses"]
 
 #: Card order, and the label each role is shown under.
 ROLES = {
@@ -97,36 +97,44 @@ def run_card():
     model swapped in halfway through shows up, and a configured one that was
     never called does not.
     """
+    # UTC, like the ship stamp's shipped_at, so the two agree.
+    today = datetime.now(timezone.utc).date().isoformat()
+    return render({
+        "date": today,
+        "uses": [{"role": u.role, "model": u.model, "provider": u.provider, "routed": u.routed,
+                  "calls": u.calls, "cached": u.cached, "served": sorted(u.served)}
+                 for u in uses()],
+    })
+
+
+def render(data: dict):
+    """The card for a record :func:`run_card` made, so a stored card can be redrawn.
+
+    The record travels in the card's output metadata; this is the only place
+    that turns it into words.
+    """
     from cbnb.readout import RunCard
 
-    rows, routed = [], []
-    for use in uses():
-        detail = ["on this machine" if use.provider == LOCAL else f"via {use.provider}"]
-        unit = UNITS[use.role]
-        detail.append(f"{use.calls:,} {unit}{'s' if use.calls != 1 else ''}")
-        if use.cached:
-            detail[-1] += f", {use.cached:,} from cache"
-        if use.served:
-            detail.append(f"served as {', '.join(sorted(use.served))}")
-        rows.append((ROLES[use.role], use.model, "; ".join(detail)))
-        if use.routed and use.provider not in routed:
-            routed.append(use.provider)
+    rows, routed, cached = [], [], False
+    for use in data.get("uses", []):
+        detail = ["on this machine" if use["provider"] == LOCAL else f"via {use['provider']}"]
+        unit = UNITS[use["role"]]
+        detail.append(f"{use['calls']:,} {unit}{'s' if use['calls'] != 1 else ''}")
+        if use.get("cached"):
+            detail[-1] += f", {use['cached']:,} from cache"
+            cached = True
+        if use.get("served"):
+            detail.append(f"served as {', '.join(use['served'])}")
+        rows.append((ROLES[use["role"]], use["model"], "; ".join(detail)))
+        if use.get("routed") and use["provider"] not in routed:
+            routed.append(use["provider"])
 
     notes = []
     if routed:
         notes.append(ROUTED_NOTE.format(providers=" and ".join(routed),
                                         verb="pass" if len(routed) > 1 else "passes"))
-    if any(use.cached for use in uses()):
+    if cached:
         notes.append("Cached results came from an earlier run of the same model.")
     if not rows:
         notes.append("No model was called in this run.")
-
-    # UTC, like the ship stamp's shipped_at, so the two agree.
-    today = datetime.now(timezone.utc).date().isoformat()
-    data = {
-        "date": today,
-        "uses": [{"role": u.role, "model": u.model, "provider": u.provider, "routed": u.routed,
-                  "calls": u.calls, "cached": u.cached, "served": sorted(u.served)}
-                 for u in uses()],
-    }
-    return RunCard(f"The results above came from these models · {today}", rows, notes, data)
+    return RunCard(f"The results above came from these models · {data['date']}", rows, notes, data)

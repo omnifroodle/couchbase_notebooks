@@ -427,12 +427,17 @@ def _last_output(cells: list[dict], prefer: int | None = None) -> tuple[int, dic
             continue
         for output in reversed(cell.get("outputs", [])):
             data = output.get("data") or {}
+            card = ((output.get("metadata") or {}).get("cbnb") or {}).get("run_card")
+            if card is not None:
+                # Redrawn from its record, as Markdown: a deck renders tables, and
+                # the card's HTML is shaped for GitHub's notebook view instead.
+                from cbnb.provenance import render
+
+                return i, {"markdown": render(card)._repr_markdown_()}
             if "image/png" in data:
                 return i, {"png": data["image/png"]}
             if "text/html" in data and "<table" in "".join(data["text/html"]):
                 return i, {"html": "".join(data["text/html"])}
-            if "text/markdown" in data:
-                return i, {"markdown": "".join(data["text/markdown"])}
     return None
 
 

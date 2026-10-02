@@ -131,9 +131,10 @@ class RunCard:
     underneath. ``data`` is a machine-readable copy that travels in the
     output's metadata, so tooling can read the card back out of a notebook file.
 
-    Rendered as Markdown rather than HTML, because a card's job is to survive
-    in a stored output, and GitHub's notebook view keeps Markdown and strips
-    inline styles.
+    Rendered as plain HTML -- a blockquote around a table, no inline styles.
+    A card's job is to survive in a stored output: GitHub's notebook view strips
+    inline styles, and draws Markdown outputs without tables, but keeps an HTML
+    table. :meth:`_repr_markdown_` is for decks, which do render tables.
     """
 
     headline: str
@@ -162,8 +163,19 @@ class RunCard:
             lines += [">", f"> *{_md(note)}*"]
         return "\n".join(lines)
 
+    def _repr_html_(self) -> str:
+        parts = [f"<blockquote><p><strong>{_e(self.headline)}</strong></p>"]
+        if self.rows:
+            parts.append("<table><thead><tr><th></th><th>model</th><th>how it ran</th></tr></thead><tbody>")
+            parts += [f"<tr><td>{_e(label)}</td><td><code>{_e(value)}</code></td><td>{_e(detail)}</td></tr>"
+                      for label, value, detail in self.rows]
+            parts.append("</tbody></table>")
+        parts += [f"<p><em>{_e(note)}</em></p>" for note in self.notes]
+        parts.append("</blockquote>")
+        return "".join(parts)
+
     def _repr_mimebundle_(self, include=None, exclude=None):
-        bundle = {"text/markdown": self._repr_markdown_(), "text/plain": str(self)}
+        bundle = {"text/html": self._repr_html_(), "text/plain": str(self)}
         return bundle, {"cbnb": {"run_card": self.data}}
 
 
