@@ -17,7 +17,7 @@ summary_heading: In short
 summary:
 - 'A notebook about two-stage search: a cheap wide search pulls a shortlist of fifty products,
   then a cross-encoder re-reads that shortlist and reorders it.'
-- 'The first attempt fails: reranking a three-word product name changes nothing (nDCG@10 0.774
+- 'The first attempt fails: reranking a three-word product name changes nothing (nDCG@10 0.772
   to 0.769).'
 - The same model reaches 0.828 once it can also read the category path and spec text already
   sitting on the document.
@@ -113,13 +113,13 @@ sections:
     why: reruns the scoring with richer fields; the output table is the point
   evidence:
     cell: 14
-    says: 'The scores table: nDCG@10 of 0.769 reranking the name alone, 0.799 with the category
+    says: 'The scores table: nDCG@10 of 0.769 reranking the name alone, 0.798 with the category
       path, 0.828 with the spec text, at rising runtime.'
     explain: true
   hash: 5d710763b88e
 - heading: 6. How deep should the shortlist be?
   setup: false
-  idea: The gain grows with how deep into the shortlist the reranker reads — from 0.787 reranking
+  idea: The gain grows with how deep into the shortlist the reranker reads — from 0.783 reranking
     ten candidates to 0.835 at a hundred — while recall stays fixed because the shortlist
     is set beforehand.
   paragraphs:

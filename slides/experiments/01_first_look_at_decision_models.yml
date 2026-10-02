@@ -17,7 +17,7 @@ summary_heading: In short
 summary:
 - A decision model answers narrow questions about text — yes or no, pick one, place on a scale
   — with calibrated probabilities instead of prose.
-- 'It is fast and cheap enough to sit in the request path of a search: answers in about a
+- 'It is fast and cheap enough to sit in the request path of a search: answers in under a
   quarter of a second, network included, and twelve questions in one call take no longer than
   one.'
 - Confidence is 1.00 on clear messages and falls below 0.5 on ambiguous ones, so your code
