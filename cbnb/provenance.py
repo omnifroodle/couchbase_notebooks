@@ -45,6 +45,11 @@ class Use:
     cached: int = 0
     #: Model names the provider reported back, when they differ from ``model``.
     served: set[str] = field(default_factory=set)
+    #: Tokens the provider reported, for uncached calls that said. Kept for the
+    #: journal, not the card: a jump in completion tokens is how a provider
+    #: quietly turning a model's reasoning on shows up.
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
 
 
 #: The provider name for a model that runs in this kernel.
@@ -62,6 +67,8 @@ def record(
     cached: bool = False,
     served: str | None = None,
     calls: int = 1,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
 ) -> None:
     """Note that ``model`` answered ``calls`` requests in ``role``.
 
@@ -77,6 +84,8 @@ def record(
         use.cached += calls
     if served and served != model:
         use.served.add(served)
+    use.prompt_tokens += prompt_tokens
+    use.completion_tokens += completion_tokens
 
 
 def uses() -> list[Use]:

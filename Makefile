@@ -2,7 +2,7 @@
 PY := .venv/bin/python
 NB ?= retrieval/01
 
-.PHONY: help setup lab run run-to scratch ship check review slides review-slides hooks
+.PHONY: help setup lab run run-to scratch ship trial journal check review slides review-slides hooks
 
 help:
 	@echo "make setup            create .venv and install everything"
@@ -11,6 +11,8 @@ help:
 	@echo "make run-to NB=retrieval/01 UNTIL='regex'  run only the cells before the first match"
 	@echo "make scratch NB=retrieval/01 copy a notebook to build/scratch/ to explore without editing it"
 	@echo "make ship NB=retrieval/01    execute fresh (no LLM cache), store outputs in the notebook, run checks"
+	@echo "make trial NB=flows/01 N=3   run uncached N times -> journal/ only (notebook untouched)"
+	@echo "make journal [NB=flows/01]   every journaled run: which claims held, how far measures moved"
 	@echo "make check            lint + notebook checks"
 	@echo "make review NB=retrieval/01  ask a model which claims the stored outputs no longer support"
 	@echo "make slides NB=retrieval/03  a Marp deck walking through the notebook -> build/slides/"
@@ -51,6 +53,17 @@ scratch:
 ship:
 	$(PY) scripts/run_notebook.py $(NB) --inplace --no-cache
 	$(PY) scripts/check_notebooks.py
+
+# A ship is one sample. Trials add more without touching the notebook; each
+# costs what a ship costs. Stops at the first failed run.
+N ?= 3
+trial:
+	@for i in $$(seq 1 $(N)); do echo "== trial $$i of $(N)"; \
+	  $(PY) scripts/run_notebook.py $(NB) --no-cache || exit 1; done
+	$(PY) scripts/journal_report.py $(NB)
+
+journal:
+	$(PY) scripts/journal_report.py $(if $(filter command line,$(origin NB)),$(NB))
 
 # Advisory, and not part of `check` on purpose: a model's opinion should never
 # gate a commit, and this needs an API key that `check` does not.

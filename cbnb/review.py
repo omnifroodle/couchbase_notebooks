@@ -77,7 +77,7 @@ class Finding:
 
     cell: int
     quote: str
-    verdict: str  # "contradicted" or "unsupported"
+    verdict: str  # "contradicted", "unsupported", or "unstable" (journal disagrees)
     why: str
 
     def __str__(self) -> str:
@@ -251,6 +251,40 @@ Outputs produced by the run stored in the notebook:
 
 List the statements in the prose that these outputs contradict or cannot support."""
 
+#: Added when the notebook has been run more than once uncached. The reader sees
+#: one run; the author should not mistake it for the result.
+JOURNAL_USER = """
+
+=====
+
+The journal of every uncached run of this notebook, including runs the reader never sees. \
+A claim marked FLAPPING held in some runs and not others; a measure's min and max are how \
+far it moved:
+
+{journal}
+
+=====
+
+Also flag, with verdict 'unstable', a statement that presents as a finding something the \
+journal shows does not hold reliably: a comparison or effect whose claim is FLAPPING, or a \
+number stated more precisely than its spread across runs allows ("70.6%" when runs ranged \
+from 66% to 71%). Say in why what the journal shows. The fix is a weaker or less precise \
+statement about this run, never a mention of other runs, so do not suggest one."""
+
+
+def _journal_of(notebook: str | Path | dict[str, Any]) -> str:
+    """The journal summary for a notebook with two or more completed runs, else ""."""
+    if isinstance(notebook, dict):
+        return ""
+    from cbnb import journal
+
+    try:
+        name = journal.name_of(Path(notebook))
+    except ValueError:
+        return ""  # not under notebooks/, e.g. a test fixture
+    done = [e for e in journal.entries(name) if e.get("status") == "ok"]
+    return journal.summary(name) if len(done) > 1 else ""
+
 
 def check_claims(
     notebook: str | Path | dict[str, Any],
@@ -271,8 +305,13 @@ def check_claims(
         return Report(skipped="the notebook has no stored outputs to check against")
     if not prose.strip():
         return Report(skipped="the notebook has no prose to check")
-    return _review(SYSTEM, USER.format(prose=prose, evidence=evidence), "claim review",
-                   verdicts="'contradicted' or 'unsupported'",
+    user = USER.format(prose=prose, evidence=evidence)
+    runs = _journal_of(notebook)
+    if runs:
+        user += JOURNAL_USER.format(journal=runs)
+    return _review(SYSTEM, user, "claim review",
+                   verdicts="'contradicted', 'unsupported' or 'unstable'" if runs
+                   else "'contradicted' or 'unsupported'",
                    why_hint="what the outputs show instead, in one sentence",
                    model=model, provider=provider)
 

@@ -11,6 +11,11 @@ written back into the notebook so GitHub renders them, and the notebook is
 stamped with a hash of its sources (see ``cbnb/nbstamp.py``). A failed
 ``--inplace`` run never writes to the notebook.
 
+Every full run without the LLM cache -- a ship, or a trial (``make trial``) --
+also leaves an entry in ``journal/`` (see ``cbnb/journal.py``): the models that
+answered, and what the notebook declared worth measuring. One run is not a
+result; the journal is how the next one is compared with it.
+
 Runs from ``.env``, never prompts, and stops at the first failing cell with its
 source and traceback.
 """
@@ -20,8 +25,10 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -62,6 +69,15 @@ def preflight() -> list[str]:
     if provider.key_env and provider.key_required and not cfg.llm_api_key:
         missing.append(provider.key_env)
     return missing
+
+
+def git_state() -> dict[str, object]:
+    """The commit a run came from, and whether the tree had uncommitted changes."""
+    def git(*args: str) -> str:
+        return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+
+    dirty = [ln for ln in git("status", "--porcelain").splitlines() if not ln[3:].startswith("journal/")]
+    return {"commit": git("rev-parse", "--short", "HEAD"), "dirty": bool(dirty)}
 
 
 def main() -> int:
@@ -109,6 +125,21 @@ def main() -> int:
     out = path if args.inplace else build_copy
 
     n_code = sum(c.cell_type == "code" for c in nb.cells)
+
+    # Cached answers repeat an earlier run, so only an uncached full run is a
+    # new sample worth journaling. A notebook that stores no outputs measures
+    # nothing.
+    from cbnb import journal
+    from cbnb.nbstamp import declares_cleared, source_hash
+
+    journaling = args.no_cache and not args.stop_before and not declares_cleared(nb)
+    entry: dict[str, object] = {}
+    if journaling:
+        measures, claims = journal.declared(nb)
+        entry = {"run_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "kind": "ship" if args.inplace else "trial", **git_state(),
+                 "source_hash": source_hash(nb)}
+        nb.cells.append(nbformat.v4.new_code_cell(journal.probe_source(measures, claims)))
     print(f"Running {path.relative_to(ROOT)} ({n_code} code cells) -> {out.relative_to(ROOT)}")
 
     client = NotebookClient(
@@ -120,12 +151,15 @@ def main() -> int:
 
     started = time.perf_counter()
     code_index = 0
+    failed_cell = None
 
     def on_cell_executed(cell, cell_index, execute_reply, **_):
-        nonlocal code_index
-        if cell.cell_type != "code":
+        nonlocal code_index, failed_cell
+        if cell.cell_type != "code" or code_index == n_code:  # the journal's probe
             return
         code_index += 1
+        if execute_reply["content"]["status"] != "ok":
+            failed_cell = code_index
         first = next((ln for ln in cell.source.splitlines() if ln.strip() and not ln.startswith("#")), "")
         status = execute_reply["content"]["status"]
         mark = "ok " if status == "ok" else "ERR"
@@ -133,9 +167,29 @@ def main() -> int:
 
     client.on_cell_executed = on_cell_executed
 
+    def finish_journal(status: str) -> None:
+        """Take the probe back out of the notebook, and keep what it found."""
+        if not journaling:
+            return
+        probe = nb.cells.pop()
+        import cbnb
+
+        entry.update(status=status, seconds=round(time.perf_counter() - started),
+                     cbnb_version=cbnb.__version__)
+        if status == "ok":
+            found = journal.parse_probe(probe.get("outputs", []))
+            entry.update(found or {"errors": {"journal": "the probe cell printed nothing"}})
+        else:
+            entry["failed_cell"] = failed_cell
+        written = journal.write(path, entry)
+        print(f"Journal: {written.relative_to(ROOT)}")
+        for name, error in (entry.get("errors") or {}).items():
+            print(f"  could not evaluate {name!r}: {error}")
+
     try:
         client.execute()
     except CellExecutionError as exc:
+        finish_journal("failed")
         # Always to build/, even with --inplace: a half-run notebook is exactly
         # the accidental edit we do not want in the committed file.
         nbformat.write(nb, build_copy)
@@ -146,6 +200,7 @@ def main() -> int:
         print("\n".join(lines[-25:]))
         return 1
 
+    finish_journal("ok")
     if args.inplace:
         import cbnb
         from cbnb.nbstamp import stamp

@@ -144,6 +144,12 @@ _KEY_PREFIXES = [
 ]
 
 
+
+def _tokens(usage: Any, field: str) -> int:
+    """A token count from a response's usage, or 0 when the provider gave none."""
+    value = getattr(usage, field, 0)
+    return value if isinstance(value, int) else 0
+
 class LLMAuthenticationError(RuntimeError):
     """The provider rejected the API key. Retrying will not help; fixing the key will."""
 
@@ -428,9 +434,12 @@ class LLM:
         """Tell :mod:`cbnb.provenance` this model answered, for the run card."""
         from cbnb import provenance
 
+        usage = getattr(response, "usage", None)
         provenance.record(role, model or self.model, self.provider.label,
                           routed=self.provider.routed, cached=cached,
-                          served=getattr(response, "model", None), calls=count)
+                          served=getattr(response, "model", None), calls=count,
+                          prompt_tokens=_tokens(usage, "prompt_tokens"),
+                          completion_tokens=_tokens(usage, "completion_tokens"))
 
     def _record(self, response: Any, elapsed: float) -> None:
         self._provenance(response=response)
