@@ -33,7 +33,13 @@ you create a codespace — and then asks for each one in turn, under the cell:
 
 1. the Couchbase settings the notebook needs;
 2. which model provider to use, if you haven't said — `openai` unless you type another;
-3. that provider's API key.
+3. that provider's API key;
+4. which model to use — Enter accepts the provider's default.
+
+The model is asked for whenever `CBNB_LLM_MODEL` is unset, even when everything else is
+already there. It is optional, but it decides every answer the notebook prints, and the
+results stored in a notebook came from one particular model; a default you never chose is easy
+to miss.
 
 Passwords and keys are typed into a masked box, so they never appear in the notebook.
 Leave an answer blank to skip it; the setup cell then says which capability that costs you.
@@ -52,7 +58,7 @@ left sidebar → **Add new secret**. Use exactly these names:
 | `CB_PASSWORD` | Capella database access password |
 | `CB_BUCKET` | Optional. The bucket the notebooks write to; default `demos` |
 | `CBNB_LLM_PROVIDER` | `openai`, `nanogpt`, `openrouter`, `groq`, `anthropic` or `custom`; default `openai` |
-| `CBNB_LLM_MODEL` | Optional. Default: the provider's default model |
+| `CBNB_LLM_MODEL` | Optional, but asked for on every run until set. Enter at the prompt accepts the provider's default |
 | `OPENAI_API_KEY`, `NANOGPT_API_KEY`, … | The key for the provider you chose. Only that one |
 
 Anything else in [`.env.example`](../.env.example) works the same way — `CBNB_LLM_BASE_URL`
