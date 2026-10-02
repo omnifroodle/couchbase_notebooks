@@ -127,6 +127,7 @@ class Embedder:
 
         path = self._cache_path(items) if cache else None
         if path is not None and path.exists():
+            self._provenance(len(items), cached=True)
             vectors = np.load(path)
             self._dims = int(vectors.shape[1])
             return vectors
@@ -165,10 +166,24 @@ class Embedder:
             # nothing worth measuring. The api backend is plain HTTP and needs
             # no lock.
             with _LOCAL_MODEL:
-                return self._load_local().encode(
+                vectors = self._load_local().encode(
                     batch, batch_size=len(batch), convert_to_numpy=True, show_progress_bar=False
                 )
+            self._provenance(len(batch))
+            return vectors
+        # LLM.embed records the api backend's calls itself.
         return np.array(self._llm.embed(batch, model=self.model))  # type: ignore[union-attr]
+
+    def _provenance(self, count: int, *, cached: bool = False) -> None:
+        """Tell :mod:`cbnb.provenance` this model embedded ``count`` texts."""
+        from cbnb import provenance
+
+        if self.backend == "local":
+            provider, routed = provenance.LOCAL, False
+        else:
+            provider, routed = self._llm.provider.label, self._llm.provider.routed  # type: ignore[union-attr]
+        provenance.record("embeddings", self.model, provider, routed=routed, cached=cached,
+                          calls=count)
 
     def encode_one(self, text: str, *, cache: bool = True) -> np.ndarray:
         """Encode a single string to a 1-D vector."""

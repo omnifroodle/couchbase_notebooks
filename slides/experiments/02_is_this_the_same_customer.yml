@@ -20,10 +20,10 @@ summary:
 - A cheap search first finds the handful of known customers a new record could belong to;
   the model then reads the record beside each candidate and says how likely each is to be
   the same person.
-- It picked the right customer first for 187 of the 196 returning records the search reached,
+- It picked the right customer first for 188 of the 196 returning records the search reached,
   against 137 by the search's own similarity score.
-- On 200 held-out records it made 153 right decisions to a chat model's 147, at under a twentieth
-  of the cost and the time.
+- On 200 held-out records it made 156 right decisions to a chat model's 153, at about a sixteenth
+  of the cost and under a fortieth of the time.
 - It fails where the records carry no date of birth: a son then scores like his father, and
   nothing in the records could tell them apart.
 sections:
@@ -120,7 +120,7 @@ sections:
     why: 22 lines of scoring bookkeeping; the counts table is the evidence
   evidence:
     cell: 21
-    says: Top pick is the customer for 137 of 196 returning records by cosine, and 187 of
+    says: Top pick is the customer for 137 of 196 returning records by cosine, and 188 of
       196 by Jev written as values, 189 as sentences.
     explain: true
   hash: 86c526f08933

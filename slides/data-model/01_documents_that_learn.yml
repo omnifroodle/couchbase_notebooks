@@ -132,7 +132,7 @@ sections:
   - 1
   - 2
   code:
-  - cell: 25
+  - cell: 27
     mode: hide
     why: commented-out clean-up, not part of the story
   evidence:

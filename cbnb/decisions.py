@@ -143,6 +143,10 @@ def decide(
     data = response.json()
     if "answers" not in data:
         raise DecisionError(f"no answers in the response: {str(data)[:300]}")
+    from cbnb import provenance
+
+    # The response names the dated build that answered; record that, not the alias.
+    provenance.record("decisions", data.get("model", model), "OpenRouter", routed=True)
     return Decision(
         answers=data["answers"],
         model=data.get("model", model),

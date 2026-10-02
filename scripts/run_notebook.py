@@ -150,9 +150,16 @@ def main() -> int:
         import cbnb
         from cbnb.nbstamp import stamp
 
-        stamp(nb, version=cbnb.__version__)
+        changes = stamp(nb, version=cbnb.__version__)
+    else:
+        changes = []
     nbformat.write(nb, out)
     print(f"\nDone in {time.perf_counter() - started:.0f}s -> {out.relative_to(ROOT)}")
+    if changes:
+        # Advisory, never a failure: re-shipping on a new model is legitimate.
+        print("\nWarning: the models behind these results changed since the last ship.")
+        print("\n".join(f"  {line}" for line in changes))
+        print("  Prose citing specific results may no longer hold. Run `make review NB=...`.")
     return 0
 
 

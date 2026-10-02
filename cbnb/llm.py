@@ -53,6 +53,9 @@ class Provider:
     default_embedding_model: str | None = None
     key_required: bool = True
     notes: str = ""
+    #: Passes requests on to whichever vendor hosts the model, rather than
+    #: serving it. Run cards say so: what answered may be a modified build.
+    routed: bool = False
 
 
 PROVIDERS: dict[str, Provider] = {
@@ -73,6 +76,7 @@ PROVIDERS: dict[str, Provider] = {
         structured_mode="json_object",
         default_embedding_model="text-embedding-3-small",
         notes="Aggregator: one key, many upstream models. Structured-output support varies by model.",
+        routed=True,
     ),
     "openrouter": Provider(
         key="openrouter",
@@ -81,6 +85,7 @@ PROVIDERS: dict[str, Provider] = {
         key_env="OPENROUTER_API_KEY",
         default_model="openai/gpt-4.1-mini",
         structured_mode="json_object",
+        routed=True,
     ),
     "groq": Provider(
         key="groq",
@@ -362,6 +367,7 @@ class LLM:
             hit = self._cache_get(path)
             if hit is not None:
                 self.usage.cached_calls += 1
+                self._provenance(cached=True)
                 return hit
 
         started = time.perf_counter()
@@ -417,7 +423,17 @@ class LLM:
             lines.append(f"Fix it for good: {how_to_fix_permanently(name)}.")
         return "\n".join(lines)
 
+    def _provenance(self, *, role: str = "chat", model: str | None = None,
+                    cached: bool = False, response: Any = None, count: int = 1) -> None:
+        """Tell :mod:`cbnb.provenance` this model answered, for the run card."""
+        from cbnb import provenance
+
+        provenance.record(role, model or self.model, self.provider.label,
+                          routed=self.provider.routed, cached=cached,
+                          served=getattr(response, "model", None), calls=count)
+
     def _record(self, response: Any, elapsed: float) -> None:
+        self._provenance(response=response)
         self.usage.calls += 1
         self.usage.seconds += elapsed
         usage = getattr(response, "usage", None)
@@ -456,6 +472,7 @@ class LLM:
             hit = self._cache_get(path)
             if hit is not None:
                 self.usage.cached_calls += 1
+                self._provenance(cached=True)
                 return schema.model_validate(hit)
 
         from openai import (
@@ -637,4 +654,5 @@ class LLM:
             )
         batch = list(texts)
         response = self._api(self.client.embeddings.create, model=model, input=batch)
+        self._provenance(role="embeddings", model=model, response=response, count=len(batch))
         return [item.embedding for item in response.data]

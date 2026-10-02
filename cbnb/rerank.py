@@ -74,6 +74,9 @@ class Reranker:
             return []
         pairs = [(query, text) for text in texts]
         scores = self._model.predict(pairs, batch_size=self.batch_size, show_progress_bar=False)
+        from cbnb import provenance
+
+        provenance.record("reranker", self.model_name, provenance.LOCAL, calls=len(pairs))
         return [float(s) for s in scores]
 
     def rank(

@@ -21,7 +21,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from cbnb.inventory import read_lab  # noqa: E402 - needs ROOT on sys.path
-from cbnb.nbstamp import is_ephemeral, verify  # noqa: E402
+from cbnb.nbstamp import is_ephemeral, run_card_data, verify  # noqa: E402
+
+#: Capabilities that mean a model shaped the results. A notebook declaring one
+#: must say which model, in a run card, or its stored numbers have no author.
+MODEL_CAPABILITIES = {"llm", "local-embeddings", "api-embeddings", "decision-model"}
 
 SECRET_PATTERNS = [
     (re.compile(r"sk-[A-Za-z0-9_\-]{20,}"), "OpenAI-style API key"),
@@ -157,6 +161,13 @@ def check(path: Path) -> tuple[list[str], list[str]]:
         unknown = _unknown_capabilities(lab.requires)
         if unknown:
             problems.append(f"unknown capability {unknown[0]!r} in bootstrap(requires=...)")
+
+    uses_models = sorted(MODEL_CAPABILITIES & set(lab.requires)) if lab else []
+    if status == "shipped" and uses_models and run_card_data(nb) is None:
+        problems.append(
+            f"uses a model ({', '.join(uses_models)}) but no stored output says which -- "
+            "end it with a cell that runs `cbnb.run_card()`, then `make ship`"
+        )
 
     if "OWNER/REPO" in path.read_text():
         warnings.append(

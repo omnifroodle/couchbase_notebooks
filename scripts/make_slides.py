@@ -427,6 +427,13 @@ def _last_output(cells: list[dict], prefer: int | None = None) -> tuple[int, dic
             continue
         for output in reversed(cell.get("outputs", [])):
             data = output.get("data") or {}
+            card = ((output.get("metadata") or {}).get("cbnb") or {}).get("run_card")
+            if card is not None:
+                # Redrawn from its record, as Markdown: a deck renders tables, and
+                # the card's HTML is shaped for GitHub's notebook view instead.
+                from cbnb.provenance import render
+
+                return i, {"markdown": render(card)._repr_markdown_()}
             if "image/png" in data:
                 return i, {"png": data["image/png"]}
             if "text/html" in data and "<table" in "".join(data["text/html"]):
@@ -633,6 +640,9 @@ def build(path: Path, out_dir: Path) -> tuple[Path, int, str]:
             image = out_dir / f"{path.stem}_{image_count}.png"
             image.write_bytes(base64.b64decode("".join(payload["png"])))
             body.append(f"![w:900]({image.name})")
+        elif "markdown" in payload:
+            # A run card: Markdown already, minus the quote marks that frame it in a notebook.
+            body.append(re.sub(r"(?m)^> ?", "", payload["markdown"]))
         elif _authored_table(after_prose):
             # The author's own table, written under the output it summarises.
             body.append(_authored_table(after_prose))
