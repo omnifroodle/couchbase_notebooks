@@ -124,17 +124,22 @@ def _ask_for_missing(requires: list[str]) -> list[str]:
     """Ask for the settings this notebook needs that nothing has supplied.
 
     The notebook's answer to the create-a-codespace page: one list of what is
-    needed and why, then a prompt for each. Returns the names answered.
+    needed and why, then a prompt for each. The chat model is asked for too,
+    while it is unset, though Enter accepts a default. Returns the names answered.
     """
     if os.environ.get("CBNB_NONINTERACTIVE"):
         return []
     from cbnb.readiness import missing_settings
 
     names = missing_settings(requires)
-    if not names:
+    # Optional, but a default nobody chose decides every answer the notebook
+    # prints, so it is asked for until it is set.
+    uses_chat = any(r in ("llm", "api-embeddings") for r in requires)
+    choose_model = uses_chat and not os.environ.get("CBNB_LLM_MODEL")
+    if not names and not choose_model:
         return []
 
-    from cbnb.config import ask_for_provider, ask_for_settings, setting_descriptions
+    from cbnb.config import ask_for_model, ask_for_provider, ask_for_settings, setting_descriptions
     from cbnb.llm import PROVIDERS
     from cbnb.readout import Item, Panel
 
@@ -153,9 +158,12 @@ def _ask_for_missing(requires: list[str]) -> list[str]:
     if choose_provider:
         rows.append(Item("blocked", "CBNB_LLM_PROVIDER", descriptions.get("CBNB_LLM_PROVIDER", "")))
         rows.append(Item("blocked", "an API key for that provider"))
+    needed = len(rows)
+    if choose_model:
+        rows.append(Item("unknown", "CBNB_LLM_MODEL", "optional: Enter accepts the provider's default"))
     Panel(
-        f"This notebook needs {len(rows)} setting{'s' if len(rows) != 1 else ''} "
-        "you haven't given it",
+        f"This notebook needs {needed} setting{'s' if needed != 1 else ''} you haven't given it"
+        if needed else "Which model should this notebook use?",
         [("Asked for below", rows)],
         summary=("Answer each prompt; a blank answer skips it. Answers last for this "
                  f"session. To skip this next time, {_where_to_keep_settings()}."),
@@ -169,6 +177,11 @@ def _ask_for_missing(requires: list[str]) -> list[str]:
         # Now names the chosen provider's key, if it needs one.
         llm_keys = missing_settings([r for r in requires if r in ("llm", "api-embeddings")])
         answered += ask_for_settings(llm_keys, descriptions)
+    # Last, so the default offered is the chosen provider's. A custom endpoint
+    # has already been asked for its model.
+    if choose_model and not os.environ.get("CBNB_LLM_MODEL"):
+        ask_for_model()
+        answered.append("CBNB_LLM_MODEL")
     return answered
 
 

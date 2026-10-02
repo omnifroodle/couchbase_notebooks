@@ -212,6 +212,27 @@ def ask_for_provider() -> str:
     return answer
 
 
+def ask_for_model() -> str:
+    """Ask which model to use, offering the provider's default.
+
+    Optional, unlike the rest: Enter accepts the default. Asked anyway because a
+    default nobody chose decides every result the notebook prints.
+    """
+    from cbnb.llm import PROVIDERS
+
+    provider = PROVIDERS[os.environ.get("CBNB_LLM_PROVIDER", "openai")]
+    default = provider.default_model
+    try:
+        answer = input(f"CBNB_LLM_MODEL -- model to use on {provider.label} [{default}]: ").strip()
+    except EOFError:
+        return default
+    value = answer or default
+    if value:
+        os.environ["CBNB_LLM_MODEL"] = value
+        SETTING_SOURCES["CBNB_LLM_MODEL"] = "a prompt in this session"
+    return value
+
+
 def mask_host(connection_string: str) -> str:
     """Hide the identifying part of a cluster address.
 
