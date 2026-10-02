@@ -19,11 +19,12 @@ summary:
   answers were written down by lawyers.
 - 62% of those questions have no answer in their contract, so the hardest behaviour to test
   is whether the system admits it.
-- The same pipeline that aces the demo scores 68.8% across 160 judged questions and fabricates
-  an answer for 19 of the unanswerable ones.
+- The same pipeline that aces the demo scores 66.9% across 160 judged questions and fabricates
+  an answer for 21 of the unanswerable ones.
 - Lawyer-marked text spans split the failures into retrieval misses and model ignores, two
   different bugs with different fixes.
-- One paragraph added to the system prompt, aimed at the fabrications, barely moves accuracy: 69.4%.
+- One paragraph added to the system prompt, aimed at the fabrications, lifts accuracy to 70.0%,
+  almost all of it by fabricating less.
 sections:
 - heading: 1. Twenty contracts and what lawyers said about them
   setup: false
@@ -112,8 +113,8 @@ sections:
     why: tallying is trivial; the table is the evidence
   evidence:
     cell: 18
-    says: 'The baseline prompt''s outcome tally: 68.8% correct, with 19 hallucinated answers
-      and 36 grounded ones across 160 questions.'
+    says: 'The baseline prompt''s outcome tally: 66.9% correct, with 21 hallucinated answers
+      and 35 grounded ones across 160 questions.'
     explain: false
   hash: 5eb6879dfd1c
 - heading: 5. Where it actually went wrong
@@ -149,8 +150,8 @@ sections:
     why: plotting code; the chart is the evidence
   evidence:
     cell: 24
-    says: A stacked bar chart comparing both prompts across the five outcomes, showing the two
-      within a question of each other on every outcome.
+    says: A stacked bar chart comparing both prompts across the five outcomes, showing four fewer
+      fabrications and four more correct abstentions, and little else moving.
     explain: true
   hash: ea343df24eaf
 - heading: What to take from this

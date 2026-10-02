@@ -73,6 +73,25 @@ results" heading and a cell running `cbnb.run_card()`. The card lists the models
 called, through which provider, and whether that provider routes to another host. The checker
 fails a shipped notebook without one, and `make ship` warns when the models change.
 
+**Declare what the prose claims, so the journal can check it.** A model-backed result can move
+between runs of the same code. In the notebook's metadata, under `cbnb`, list `measures` (numbers
+worth tracking) and `claims` (each sentence the prose asserts as a finding, written as a Python
+test). Each is an expression evaluated in the kernel after the last cell:
+
+```json
+"cbnb": {
+  "measures": {"strict correct %": "summarise(strict, 's')['correct %']"},
+  "claims": {"strict prompt is not a clear fix (< 3 points)":
+             "summarise(strict, 's')['correct %'] - summarise(plain, 'b')['correct %'] < 3"}
+}
+```
+
+Every ship and every `make trial` keeps a record in `journal/`, and `make journal` shows which
+claims held in every run. A claim that **flaps** is not the notebook's to make, whatever the
+latest run says. Weaken it, or state it at the precision the spread allows. Never fix it by
+mentioning other runs: the reader has only theirs. Metadata is outside the ship stamp, so you
+can add declarations without a re-ship.
+
 **Every code cell opens with a one-line comment saying what it does.** Plain English,
 short, about *this* cell: `# Build the Search index and wait until it's ready.` The
 markdown above a cell is often about the problem, not the code, and a setup cell's

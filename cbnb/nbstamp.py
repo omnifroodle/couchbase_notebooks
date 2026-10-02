@@ -22,6 +22,10 @@ STAMP_KEY = "cbnb"
 #: interpreter paths, widget state, Colab view settings) that churns diffs.
 KEEP_METADATA = {"kernelspec", "language_info", STAMP_KEY}
 
+#: Keys under ``metadata.cbnb`` that a person writes and a ship keeps: what the
+#: journal evaluates after each run (see ``cbnb/journal.py``).
+DECLARED_KEYS = ("measures", "claims")
+
 
 def _source(cell: dict[str, Any]) -> str:
     source = cell.get("source", "")
@@ -155,6 +159,9 @@ def stamp(nb: dict[str, Any], version: str = "") -> list[str]:
     """
     cleared = declares_cleared(nb)  # read before the stamp below overwrites it
     before = (nb.get("metadata", {}).get(STAMP_KEY) or {}).get("models")
+    # Written by hand, not by a ship: what the journal keeps from each run.
+    declared = {key: value for key, value in (nb.get("metadata", {}).get(STAMP_KEY) or {}).items()
+                if key in DECLARED_KEYS}
     metadata = nb.setdefault("metadata", {})
     for key in list(metadata):
         if key not in KEEP_METADATA:
@@ -176,7 +183,7 @@ def stamp(nb: dict[str, Any], version: str = "") -> list[str]:
     if cleared:
         # Nothing is stored, so nothing can go stale: no source hash to record.
         clear_outputs(nb)
-        metadata[STAMP_KEY] = {"outputs": "cleared", "checked_at": shipped_at}
+        metadata[STAMP_KEY] = {"outputs": "cleared", "checked_at": shipped_at, **declared}
         return []
 
     card = run_card_data(nb)
@@ -186,6 +193,7 @@ def stamp(nb: dict[str, Any], version: str = "") -> list[str]:
         "shipped_at": shipped_at,
         **({"cbnb_version": version} if version else {}),
         **({"models": models} if models is not None else {}),
+        **declared,
     }
     return model_changes(before, models) if models is not None else []
 

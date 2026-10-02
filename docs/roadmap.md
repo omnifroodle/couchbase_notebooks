@@ -591,19 +591,18 @@ currently takes knowledge a stranger doesn't have. Causes below are suspected, n
   `rating_count`, `average_rating` and `review_count` are in WANDS upstream and not in `data/`.
   Features beat description when measured together, so this is not obviously worth the size; the
   ratings fields are untested as ranking signals.
-- **A single run is not a result, and the stored prose says it is.** Three full re-ships between
-  2026-10-01 and 10-02 (same code, NanoGPT `z-ai/glm-5.3`) moved conclusions, not just
-  decimals. `flows/01`: the strict prompt went 64.4% → 70.6%, then 66.9% → 71.2%, then
-  68.8% → 69.4% — a fix, then not one. `enrich/02`: two-prompt disagreement caught 5 of 21
-  errors, then 1 of 20, then 5 of 20; `parties` scored 80.3%, 49.2%, 80.3%, 74.6% as the model
-  decorated names more or less. `experiments/02`: the chat model's completion tokens went 65 →
-  335 → 26 per record as the provider turned reasoning on and off, and its cost with them. Each
-  notebook's prose was rewritten to its own stored run every time, which is honest and
-  unstable. Options: run the model-dependent sections several times and report the spread
-  (cost × N); pin a provider that does not route; or phrase claims at the resolution the
-  noise allows ("within a few points" rather than "70.6%"). This is evaluation layer 5
-  (stability), and the run card (`cbnb.run_card()`) is only its first half: it says which
-  model, not how much the answer moves.
+- **A single run is not a result — now journaled (2026-10-02).** Three full re-ships between
+  2026-10-01 and 10-02 (same code, NanoGPT `z-ai/glm-5.3`) moved conclusions, and each
+  notebook's prose was rewritten to the run in front of it. Every uncached run now leaves an
+  entry in `journal/` with the notebook's declared measures and claims (`make trial`,
+  `make journal`; rules in CLAUDE.md). Three trials each of the three worst offenders:
+  `experiments/02` held 6 of 7 claims (the chat model's speed varied 5–8 s per record);
+  `enrich/02` held 5 of 5, with `parties` between 67% and 77%; `flows/01`'s strict prompt gained
+  3–6 points in every trial, so the stored run's "it is not a fix" (+0.6) was the outlier the
+  prose had been bent to. Still open: declare measures and claims on the other model-backed
+  notebooks; whether a reader-facing notebook should ever say how stable its result is (today
+  the journal is internal); pinning a provider that does not route, which the journal can now
+  measure rather than guess at. This is evaluation layer 5 (stability).
 - **Vector scores drift between runs — cause confirmed 2026-09-18.** Every run of `retrieval/02`
   and `03` re-upserts all 6,482 products, and the Search service re-indexes them even when the
   content is byte-identical. The approximate-neighbour structures are rebuilt, and vector

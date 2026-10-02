@@ -1,0 +1,42 @@
+{
+ "run_at": "2026-10-02T15:16:46Z",
+ "kind": "trial",
+ "commit": "71aef5e",
+ "dirty": true,
+ "source_hash": "03a97e0a9fcf7455",
+ "status": "ok",
+ "seconds": 280,
+ "cbnb_version": "0.1.0",
+ "measures": {
+  "agreement_date accuracy %": 91.0,
+  "errors among title + law": 19.0,
+  "errors caught by disagreement": 3.0,
+  "governing_law accuracy %": 95.8,
+  "parties accuracy %": 73.0,
+  "parties, names cut at , or ( %": 94.26229508196721,
+  "prompts disagreed": 17.0,
+  "title accuracy %": 88.5,
+  "verbatim flag fired": 2.0
+ },
+ "claims": {
+  "disagreement is enriched for errors": true,
+  "disagreement misses most errors": true,
+  "most parties misses are a name with extras": true,
+  "parties is the weakest field": true,
+  "verbatim flag is never wrong when it fires": true
+ },
+ "errors": {},
+ "models": [
+  {
+   "role": "chat",
+   "model": "z-ai/glm-5.3",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 244,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 1476633,
+   "completion_tokens": 24241
+  }
+ ]
+}

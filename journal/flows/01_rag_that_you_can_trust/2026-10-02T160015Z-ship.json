@@ -1,0 +1,51 @@
+{
+ "run_at": "2026-10-02T16:00:15Z",
+ "kind": "ship",
+ "commit": "c0e6e71",
+ "dirty": true,
+ "source_hash": "a91539d43a74336c",
+ "status": "ok",
+ "seconds": 380,
+ "cbnb_version": "0.1.0",
+ "measures": {
+  "baseline correct %": 66.875,
+  "baseline hallucinated (of no-answer)": 21.0,
+  "had the span, not grounded": 13.0,
+  "retrieval missed the span": 21.0,
+  "retrieval@4 %": 68.28478964401295,
+  "strict correct %": 70.0,
+  "strict hallucinated (of no-answer)": 17.0
+ },
+ "claims": {
+  "a fifth to a quarter of no-answer questions fabricated": true,
+  "demo query answered right": true,
+  "retrieval misses outnumber ignored passages": true,
+  "strict prompt fabricates less": true,
+  "strict prompt gains at least 2 points": true
+ },
+ "errors": {},
+ "models": [
+  {
+   "role": "chat",
+   "model": "z-ai/glm-5.3",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 321,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 397306,
+   "completion_tokens": 52823
+  },
+  {
+   "role": "embeddings",
+   "model": "sentence-transformers/all-MiniLM-L6-v2",
+   "provider": "this machine",
+   "routed": false,
+   "calls": 1239,
+   "cached": 1239,
+   "served": [],
+   "prompt_tokens": 0,
+   "completion_tokens": 0
+  }
+ ]
+}

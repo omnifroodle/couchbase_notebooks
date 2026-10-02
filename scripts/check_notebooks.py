@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from cbnb import journal  # noqa: E402 - needs ROOT on sys.path
 from cbnb.inventory import read_lab  # noqa: E402 - needs ROOT on sys.path
 from cbnb.nbstamp import is_ephemeral, run_card_data, verify  # noqa: E402
 
@@ -168,6 +169,16 @@ def check(path: Path) -> tuple[list[str], list[str]]:
             f"uses a model ({', '.join(uses_models)}) but no stored output says which -- "
             "end it with a cell that runs `cbnb.run_card()`, then `make ship`"
         )
+
+    # Advisory: a flapping claim may still be stated carefully enough. The prose
+    # is for a person to judge against `make journal`.
+    runs = [e for e in journal.entries(journal.name_of(path)) if e.get("status") == "ok"]
+    declared = journal.declared(nb)[1]   # a claim since reworded is not this prose's problem
+    for claim in (c for c in journal.flapping(runs) if c in declared):
+        held = sum(bool((e.get("claims") or {}).get(claim)) for e in runs if claim in (e.get("claims") or {}))
+        total = sum(claim in (e.get("claims") or {}) for e in runs)
+        warnings.append(f"claim {claim!r} held in {held} of {total} journaled runs -- "
+                        "check the prose does not state it as a finding (`make journal`)")
 
     if "OWNER/REPO" in path.read_text():
         warnings.append(
