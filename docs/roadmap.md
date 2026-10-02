@@ -61,7 +61,7 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-16 | `retrieval/01` building hybrid search | The mechanics, measuring nothing. |
 | 2026-09-16 | `retrieval/02` which parts helped | The measurement, reusing `01`'s index. |
 | 2026-09-16 | `flows/01` RAG you can trust | The thesis in full: a demo that works, then 820 judged questions. |
-| 2026-09-21 | `flows/03` when to stop searching | Agentic search, measured: the loop costs 4× the calls and ties single-shot; retrieving more text and answering once beats both. Numbered `03` so `flows/02` stays with chat with memory. |
+| 2026-09-21 | `flows/03` when to stop searching | Agentic search, measured: the loop costs 4× the calls and does no better than single-shot; retrieving more text and answering once beats both. Numbered `03` so `flows/02` stays with chat with memory. |
 | 2026-09-16 | `data-model/01` documents that learn | Extract, attach (embedded *and* referenced), query with SQL++. |
 | 2026-09-16 | `data-model/02` adding retrieval | Chunks as derived documents; what a search index's inability to join forces. |
 | 2026-09-17 | `enrich/02` scoring the extraction | Closes the gap `data-model/01` left. Four fields, four scoring rules, and two self-checks that both fall short. |

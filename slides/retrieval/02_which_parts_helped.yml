@@ -19,7 +19,7 @@ summary:
   — run over the same 40 real queries and scored against human relevance judgements.
 - 'Scored properly, they do not agree on a winner: BM25 trails on ordering, the hybrids lead
   recall, and some gaps are smaller than the run-to-run noise.'
-- A department filter that barely moves the average changes recall for 8–10 of the 40 queries
+- A department filter that barely moves the average changes recall for 8–12 of the 40 queries
   — an aggregate score hides more than it shows.
 - 'No LLM and no cost: just measurement, scored with trec_eval, the reference implementation
   the IR literature reports against.'
