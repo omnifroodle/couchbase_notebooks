@@ -158,8 +158,10 @@ cbnb.run_card()
 The card lists what was actually called, recorded by `LLM`, `Embedder`, `Reranker` and
 `decide()` as they run, so nothing has to be declared twice. It names the provider, and says
 when the provider routes requests to another host (NanoGPT, OpenRouter: what answered may be a
-modified build). It is Markdown, not a `Panel` — a model name is not a verdict, and GitHub keeps
-Markdown outputs but strips inline styles.
+modified build). It is a plain HTML table, not a `Panel` — a model name is not a verdict — and
+not Markdown either: GitHub's notebook view strips inline styles and draws Markdown outputs
+without tables, but keeps an unstyled HTML table. Its record rides in the output's metadata, so
+`cbnb.provenance.render` can redraw a stored card without re-running the notebook.
 
 `check_notebooks.py` fails a shipped notebook that uses a model and stores no card. `make ship`
 copies the card's models into the stamp and **warns** when they differ from the last ship:
