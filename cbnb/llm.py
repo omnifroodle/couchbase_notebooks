@@ -126,6 +126,9 @@ PROVIDERS: dict[str, Provider] = {
 
 _MODES = ["json_schema", "json_object", "prompt"]
 
+#: How far ``structured`` raises ``max_tokens`` for a reply cut off at the limit.
+_MAX_TOKENS_CEILING = 16_000
+
 #: Well-known key prefixes, to spot a key pasted under the wrong provider.
 _KEY_PREFIXES = [
     ("sk-ant-", "Anthropic"),
@@ -478,7 +481,7 @@ class LLM:
                 if attempt:
                     time.sleep(min(2**attempt, 10))
                 try:
-                    text = self._call_structured(
+                    text, finish_reason = self._call_structured(
                         mode,
                         user=user,
                         system=system,
@@ -500,6 +503,11 @@ class LLM:
                     # upstream rather than an unsupported mechanism.
                     last_error = exc
                     self.usage.retries += 1
+                    if finish_reason == "length" and max_tokens < _MAX_TOKENS_CEILING:
+                        # Cut off at the limit. A thinking model can spend the
+                        # whole budget reasoning and answer nothing, and the same
+                        # budget fails the same way again.
+                        max_tokens = min(max_tokens * 2, _MAX_TOKENS_CEILING)
                     continue
                 if mode != self._mode:
                     self._mode = mode
@@ -522,7 +530,8 @@ class LLM:
         json_schema: dict[str, Any],
         temperature: float,
         max_tokens: int,
-    ) -> str:
+    ) -> tuple[str, str | None]:
+        """The reply's text, and why it ended (``"length"`` if cut off at the limit)."""
         system_text = system or ""
         kwargs: dict[str, Any] = {}
 
@@ -563,7 +572,8 @@ class LLM:
             **kwargs,
         )
         self._record(response, time.perf_counter() - started)
-        return response.choices[0].message.content or ""
+        choice = response.choices[0]
+        return choice.message.content or "", choice.finish_reason
 
     # ------------------------------------------------------------------ batch
 
