@@ -99,7 +99,14 @@ Nothing is scheduled. In rough order of value:
    than a percentage gap, because two runs of `enrich/01` a day apart moved department accuracy
    by two points on 150. Open: Jev's yes/no per candidate against its single `choice`
    (`experiments/02` found yes/no better, but that task needed a "none" answer, and this one
-   never does); refining only when the first resolution scores low.
+   never does). *Judging only when the first resolution scores low* was checked 2026-10-02,
+   outside the notebook, on `enrich/03`'s 300 products: the nearest-path similarity predicts an
+   exact match with AUC 0.61 (0.65 for the department), and Jev improves every fifth of the
+   score range, the top one included (43% → 52% exact). So the trade-off is a straight line —
+   judging the lowest-scoring half reaches 36.3% exact against 43.7% for judging everything —
+   with no point where a minority of calls buys most of the gain, and the judge is the cheap
+   part anyway. Not worth a section; the score-alone half of it is `enrich/01`'s bonus, kept
+   because it is the question a reader asks (AUC 0.57 there, from the name only).
 2. ~~**`flows/03` — agentic search.**~~ *Built 2026-09-21 as
    [`flows/03`](../notebooks/flows/03_when_to_stop_searching.ipynb). Layers 4 and 5 below are
    still open: it measured the loop once.* Search, judge the results, search again. The sceptical
