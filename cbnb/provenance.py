@@ -12,6 +12,7 @@ Records last for the kernel's lifetime, the same as the results they describe.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -57,6 +58,9 @@ LOCAL = "this machine"
 
 _USES: dict[tuple[str, str, str], Use] = {}
 
+#: Attempts run in threads, and every one of them records here.
+_LOCK = threading.Lock()
+
 
 def record(
     role: str,
@@ -78,14 +82,15 @@ def record(
     """
     if role not in ROLES:
         raise ValueError(f"role must be one of {sorted(ROLES)}, not {role!r}")
-    use = _USES.setdefault((role, model, provider), Use(role, model, provider, routed))
-    use.calls += calls
-    if cached:
-        use.cached += calls
-    if served and served != model:
-        use.served.add(served)
-    use.prompt_tokens += prompt_tokens
-    use.completion_tokens += completion_tokens
+    with _LOCK:
+        use = _USES.setdefault((role, model, provider), Use(role, model, provider, routed))
+        use.calls += calls
+        if cached:
+            use.cached += calls
+        if served and served != model:
+            use.served.add(served)
+        use.prompt_tokens += prompt_tokens
+        use.completion_tokens += completion_tokens
 
 
 def uses() -> list[Use]:

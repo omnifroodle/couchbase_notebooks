@@ -69,6 +69,7 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-17 | `retrieval/03` retrieve wide, rerank narrow | A cross-encoder over the shortlist. The first attempt failed — see below — and that became the notebook's argument. |
 | 2026-09-29 | `experiments/03` would behaviour help? | Method, not verdict: a real split-and-relink test on Online Retail II, and a flagged household simulation. |
 | 2026-09-29 | `experiments/02` is this the same customer? | Jev as the judge in entity resolution, on synthetic customer profiles. First notebook of the entity-resolution thread below. |
+| 2026-10-05 | `experiments/04` the agent said it was done | An agent graded on the records it leaves, not its tool calls: a Couchbase support desk, nine tools, ten tasks, every attempt in its own clean copy. Trajectory check against state check, one run against ten, and one fix tested (show the agent a diff of its own changes). First notebook to touch evaluation layers 4 and 5. |
 
 ### What the retrieval split taught
 
@@ -191,9 +192,13 @@ The spine. Build it bottom-up — each layer only means something if the one ben
    "did it obey the format I gave it" is *instruction-following*.) *Done in `flows/01`.*
 3. **Answer correctness.** Separate from groundedness: an answer can be faithful to a passage
    that was itself wrong.
-4. **Trajectory / task completion.** Did the agent do what was asked, and how often?
+4. **Trajectory / task completion.** Did the agent do what was asked, and how often? *First
+   touched in `experiments/04`, which grades on the terminal records rather than the trajectory:
+   a diff against the seed plus per-task conditions, no judge model. A trajectory check passed at
+   least half of the failed attempts there.*
 5. **Stability.** Same input, same result across runs and model versions. Cheap to measure, and
-   the thing that actually breaks in production.
+   the thing that actually breaks in production. *`experiments/04` reports pass@1, pass@k and
+   observed k/k over ten attempts per task, from identical clean state.*
 
 Layer 4 is where Couchbase's agent tracking is interesting as *infrastructure* rather than as a
 feature demo. See [the AIDP rule](#couchbase-ai-data-plane).

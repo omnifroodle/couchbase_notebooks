@@ -1,0 +1,45 @@
+{
+ "run_at": "2026-10-05T15:31:58Z",
+ "kind": "trial",
+ "commit": "60f2efb",
+ "dirty": true,
+ "source_hash": "50b02fa010ca36ce",
+ "status": "ok",
+ "seconds": 1428,
+ "cbnb_version": "0.1.0",
+ "measures": {
+  "failed attempts the trajectory check passed": 19.0,
+  "model calls per attempt, no extra check": 4.96,
+  "model calls per attempt, review step": 6.48,
+  "observed k/k, no extra check": 0.6,
+  "observed k/k, review step": 0.6,
+  "pass@1, no extra check": 0.66,
+  "pass@1, review step": 0.74,
+  "pass@k, no extra check": 0.8,
+  "pass@k, review step": 1.0,
+  "tokens per attempt, no extra check": 7756.52,
+  "tokens per attempt, review step": 11311.14,
+  "trajectory check passes, no extra check": 0.85
+ },
+ "claims": {
+  "a failed attempt passed the trajectory check": true,
+  "observed k/k is below pass@1": true,
+  "observed k/k is below pass@k": true,
+  "the review step makes more model calls": true,
+  "the trajectory check passes more attempts than the records do": true
+ },
+ "errors": {},
+ "models": [
+  {
+   "role": "chat",
+   "model": "z-ai/glm-5.3",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 1198,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 1900008,
+   "completion_tokens": 88560
+  }
+ ]
+}

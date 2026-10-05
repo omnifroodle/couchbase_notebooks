@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 import time
 from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -150,6 +151,19 @@ def _tokens(usage: Any, field: str) -> int:
     value = getattr(usage, field, 0)
     return value if isinstance(value, int) else 0
 
+
+def _tool_call(call: Any) -> ToolCall:
+    """A :class:`ToolCall` from the SDK's, with the arguments parsed if they can be."""
+    raw = call.function.arguments or ""
+    try:
+        parsed = json.loads(raw) if raw.strip() else {}
+        error = None if isinstance(parsed, dict) else "arguments were not a JSON object"
+    except json.JSONDecodeError as exc:
+        parsed, error = {}, f"arguments were not valid JSON ({exc.msg})"
+    return ToolCall(id=call.id, name=call.function.name,
+                    arguments=parsed if isinstance(parsed, dict) else {},
+                    raw_arguments=raw or "{}", error=error)
+
 class LLMAuthenticationError(RuntimeError):
     """The provider rejected the API key. Retrying will not help; fixing the key will."""
 
@@ -177,6 +191,43 @@ class Usage:
             f"{self.seconds:.1f}s"
             + (f", {self.retries} bad replies retried" if self.retries else "")
         )
+
+
+@dataclass
+class ToolCall:
+    """One tool call the model asked for."""
+
+    id: str
+    name: str
+    #: Parsed arguments; empty if the model sent something that was not a JSON object.
+    arguments: dict[str, Any]
+    #: The arguments exactly as the model wrote them, so a transcript can replay them.
+    raw_arguments: str
+    #: Set when ``raw_arguments`` was not a JSON object, so the caller can say so to the model.
+    error: str | None = None
+
+
+@dataclass
+class ToolReply:
+    """What the model said in one turn of a tool-calling conversation."""
+
+    content: str
+    tool_calls: list[ToolCall]
+    finish_reason: str | None
+    prompt_tokens: int
+    completion_tokens: int
+    seconds: float
+
+    @property
+    def message(self) -> dict[str, Any]:
+        """The assistant turn, in the form to append to the conversation before the tool results."""
+        message: dict[str, Any] = {"role": "assistant", "content": self.content or None}
+        if self.tool_calls:
+            message["tool_calls"] = [
+                {"id": call.id, "type": "function",
+                 "function": {"name": call.name, "arguments": call.raw_arguments}}
+                for call in self.tool_calls]
+        return message
 
 
 def _strictify(schema: dict[str, Any]) -> dict[str, Any]:
@@ -297,6 +348,7 @@ class LLM:
         if attempts is not None:
             self.attempts = attempts
         self.usage = Usage()
+        self._usage_lock = threading.Lock()
         self._mode = self.provider.structured_mode
         self._cache_dir = Path(cache_dir or Path.home() / ".cache" / "cbnb" / "llm")
         if cache is None:
@@ -443,12 +495,71 @@ class LLM:
 
     def _record(self, response: Any, elapsed: float) -> None:
         self._provenance(response=response)
-        self.usage.calls += 1
-        self.usage.seconds += elapsed
         usage = getattr(response, "usage", None)
-        if usage is not None:
-            self.usage.prompt_tokens += getattr(usage, "prompt_tokens", 0) or 0
-            self.usage.completion_tokens += getattr(usage, "completion_tokens", 0) or 0
+        with self._usage_lock:
+            self.usage.calls += 1
+            self.usage.seconds += elapsed
+            if usage is not None:
+                self.usage.prompt_tokens += getattr(usage, "prompt_tokens", 0) or 0
+                self.usage.completion_tokens += getattr(usage, "completion_tokens", 0) or 0
+
+    # -------------------------------------------------------------- tool calling
+
+    def chat_tools(
+        self,
+        messages: Sequence[dict[str, Any]],
+        tools: Sequence[dict[str, Any]],
+        *,
+        temperature: float | None = None,
+        max_tokens: int = 2048,
+    ) -> ToolReply:
+        """One turn of a conversation in which the model may call tools.
+
+        Uses the provider's native tool calling, not a JSON action parsed out of text: how a
+        model handles tool errors and empty results is the behaviour being measured, and an
+        emulation would measure the emulation.
+
+        **Never read from or written to the cache.** A conversation is sampled, and the same
+        first request sent ten times has to be ten samples. A cache would replay the first
+        answer ten times, and ten attempts would agree by construction.
+
+        An empty reply (no text and no tool call) is retried, as :meth:`structured` does; so
+        is a transient failure left over after the SDK's own retries.
+        """
+        from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
+
+        transient = (APIConnectionError, APITimeoutError, InternalServerError, RateLimitError)
+        temperature = self.temperature if temperature is None else temperature
+        started = time.perf_counter()
+        last_error: Exception | None = None
+        for attempt in range(self.attempts):
+            if attempt:
+                time.sleep(min(2**attempt, 10))
+            try:
+                response = self._api(
+                    self.client.chat.completions.create,
+                    model=self.model, messages=list(messages), tools=list(tools),  # type: ignore[arg-type]
+                    temperature=temperature, max_tokens=max_tokens)
+            except transient as exc:
+                last_error = exc
+                continue
+            self._record(response, time.perf_counter() - started)
+            choice = response.choices[0]
+            calls = [_tool_call(call) for call in choice.message.tool_calls or []]
+            content = choice.message.content or ""
+            if content.strip() or calls:
+                usage = getattr(response, "usage", None)
+                return ToolReply(content=content, tool_calls=calls,
+                                 finish_reason=choice.finish_reason,
+                                 prompt_tokens=_tokens(usage, "prompt_tokens"),
+                                 completion_tokens=_tokens(usage, "completion_tokens"),
+                                 seconds=time.perf_counter() - started)
+            with self._usage_lock:
+                self.usage.retries += 1
+        if last_error is not None:
+            raise last_error
+        return ToolReply(content="", tool_calls=[], finish_reason=None, prompt_tokens=0,
+                         completion_tokens=0, seconds=time.perf_counter() - started)
 
     # ------------------------------------------------------- structured output
 
