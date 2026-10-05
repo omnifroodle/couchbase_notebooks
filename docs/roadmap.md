@@ -69,6 +69,32 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-17 | `retrieval/03` retrieve wide, rerank narrow | A cross-encoder over the shortlist. The first attempt failed — see below — and that became the notebook's argument. |
 | 2026-09-29 | `experiments/03` would behaviour help? | Method, not verdict: a real split-and-relink test on Online Retail II, and a flagged household simulation. |
 | 2026-09-29 | `experiments/02` is this the same customer? | Jev as the judge in entity resolution, on synthetic customer profiles. First notebook of the entity-resolution thread below. |
+| 2026-10-05 | `flows/04` which model should answer? | **Drafted, not shipped.** A cheap and a strong model answer `flows/03`'s k=20 pipeline on the same 160 questions; every routing rule is then replayed over the stored answers, against a coin flip at equal cost and an oracle. See [below](#flows04-before-its-first-ship). Research behind it: [`research/model-selection-tokenomics.md`](research/model-selection-tokenomics.md). |
+
+### `flows/04` before its first ship
+
+Written 2026-10-05 in an environment with no cluster and no OpenRouter access, so it has never run
+against real services. Every code cell was executed offline against fakes (cluster, both chat
+models, Jev), which exercised the replay, the held-out thresholds, the scoreboard, the chart and
+every declared measure, but not the real APIs. Before merging:
+
+- **Check the model ids.** `openai/gpt-5-nano` and `openai/gpt-5` were chosen for a ~25× price gap
+  inside one family, which is the typical gap for OpenAI and Google tiers. Anthropic's tiers are
+  only ~2–4× apart, which leaves a router little to win. `cbnb.pricing` fails with the closest
+  listed ids if one is gone. Both are reasoning models, and the anatomy table is there to show
+  what that costs.
+- **Write the Claim and Result lines from the run.** They are placeholders. So is any sentence in
+  sections 2–8 that reads as a reading guide rather than a finding: firm them up, or cut them,
+  once the outputs exist. The research predicts a router recovering roughly a tenth of the oracle's
+  gain. If that happens, it is the lesson, not a failed demo.
+- **Declare claims.** `measures` are declared; `claims` are not, because none can be written
+  before a run. Then `make trial NB=flows/04 N=3`. A single-draw oracle is inflated by questions
+  that flip between runs, so the oracle gap needs the journal more than any other number here.
+- **Slides plan.** `make review-slides NB=flows/04` once outputs exist.
+
+New plumbing it needed: `LLM.structured(..., meter=Usage())` for per-call token counts (cached
+answers keep the tokens and seconds they originally cost, so a re-run prices the same), reasoning
+tokens in `Usage`, and `cbnb.pricing.openrouter_prices`, which reads list prices live.
 
 ### What the retrieval split taught
 
