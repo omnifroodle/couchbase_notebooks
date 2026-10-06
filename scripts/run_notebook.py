@@ -86,7 +86,9 @@ def main() -> int:
     parser.add_argument("--inplace", action="store_true", help="write outputs back into the notebook")
     parser.add_argument("--stop-before", metavar="REGEX",
                         help="run only the cells before the first code cell matching REGEX")
-    parser.add_argument("--timeout", type=int, default=900, help="per-cell timeout in seconds")
+    parser.add_argument("--timeout", type=int, default=None,
+                        help="per-cell timeout in seconds (default: the notebook's "
+                             "metadata.cbnb.cell_timeout, else 900)")
     parser.add_argument("--no-cache", action="store_true", help="disable the LLM response cache")
     parser.add_argument("--skip-preflight", action="store_true")
     args = parser.parse_args()
@@ -144,7 +146,7 @@ def main() -> int:
 
     client = NotebookClient(
         nb,
-        timeout=args.timeout,
+        timeout=args.timeout or (nb.metadata.get("cbnb", {}).get("cell_timeout") or 900),
         kernel_name="python3",
         resources={"metadata": {"path": str(path.parent)}},
     )
