@@ -86,6 +86,7 @@ PROVIDERS: dict[str, Provider] = {
         key_env="OPENROUTER_API_KEY",
         default_model="openai/gpt-4.1-mini",
         structured_mode="json_object",
+        default_embedding_model="openai/text-embedding-3-small",
         routed=True,
     ),
     "groq": Provider(

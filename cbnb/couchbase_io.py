@@ -157,15 +157,23 @@ def vector_index_definition(
     bucket_name: str,
     scope_name: str,
     collection_name: str,
-    vector_field: str,
-    dims: int,
+    vector_field: str | None = None,
+    dims: int | None = None,
     text_fields: Sequence[str] = (),
     keyword_fields: Sequence[str] = (),
     numeric_fields: Sequence[str] = (),
     datetime_fields: Sequence[str] = (),
     similarity: str = "dot_product",
+    vector_fields: dict[str, int] | None = None,
+    base64_vectors: bool = False,
 ) -> dict[str, Any]:
-    """Build a scope-level Search index definition with one vector field.
+    """Build a scope-level Search index definition with one or more vector fields.
+
+    ``vector_field`` and ``dims`` declare one; ``vector_fields`` maps several
+    names to their widths, for documents carrying vectors from several models.
+    ``base64_vectors`` declares them as ``vector_base64``: little-endian float32
+    packed into a base64 string, about a quarter of the size of the same vector
+    written as JSON numbers.
 
     Four kinds of field, because the Search service treats them differently:
 
@@ -182,21 +190,27 @@ def vector_index_definition(
     what an index actually covers, for when a filter mysteriously returns zero
     rows.
     """
+    vectors = dict(vector_fields or {})
+    if vector_field is not None:
+        vectors[vector_field] = dims
+    if not vectors:
+        raise ValueError("declare at least one vector field: vector_field= or vector_fields=")
     properties: dict[str, Any] = {
-        vector_field: {
+        name: {
             "enabled": True,
             "dynamic": False,
             "fields": [
                 {
-                    "name": vector_field,
-                    "type": "vector",
+                    "name": name,
+                    "type": "vector_base64" if base64_vectors else "vector",
                     "index": True,
-                    "dims": dims,
+                    "dims": width,
                     "similarity": similarity,
                     "vector_index_optimized_for": "recall",
                 }
             ],
         }
+        for name, width in vectors.items()
     }
     for field in text_fields:
         properties[field] = {
@@ -300,14 +314,16 @@ def ensure_vector_index(
     scope_name: str,
     collection_name: str,
     index_name: str,
-    vector_field: str,
-    dims: int,
+    vector_field: str | None = None,
+    dims: int | None = None,
     text_fields: Sequence[str] = (),
     keyword_fields: Sequence[str] = (),
     numeric_fields: Sequence[str] = (),
     datetime_fields: Sequence[str] = (),
     similarity: str = "dot_product",
     recreate: bool = False,
+    vector_fields: dict[str, int] | None = None,
+    base64_vectors: bool = False,
 ):
     """Create or update the scope-level Search index. Idempotent.
 
@@ -330,6 +346,8 @@ def ensure_vector_index(
         numeric_fields=numeric_fields,
         datetime_fields=datetime_fields,
         similarity=similarity,
+        vector_fields=vector_fields,
+        base64_vectors=base64_vectors,
     )
 
     from couchbase.exceptions import SearchIndexNotFoundException
@@ -562,6 +580,18 @@ def hybrid_search(
     scope = cluster.bucket(bucket_name).scope(scope_name)
     result = scope.search(index_name, request, SearchOptions(limit=k, fields=list(fields)))
     return [Hit(id=row.id, score=row.score, fields=row.fields or {}) for row in result.rows()]
+
+
+def vector_base64(vector: np.ndarray | Sequence[float]) -> str:
+    """A vector as the ``vector_base64`` string a Search index reads.
+
+    Little-endian float32, base64-encoded: 1,024 dimensions take about 5.5 KB this
+    way against about 20 KB as JSON numbers. SQL++ reads it back with
+    ``DECODE_VECTOR(field, false)``.
+    """
+    import base64
+
+    return base64.b64encode(np.asarray(vector, dtype="<f4").tobytes()).decode("ascii")
 
 
 def get_docs(collection, ids: Sequence[str]) -> dict[str, dict[str, Any]]:
