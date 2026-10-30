@@ -1,83 +1,80 @@
-"""Spike: a cheap fit check. Each query searched against an index of only the N ideal docs; separation = its ideal's score minus the mean of the others'. Cached vectors only; run from the repo root."""
+"""Spike: a cheap fit check from a few ideal results.
+
+Each query is searched against an index holding only the N ideal documents. Separation is its
+own ideal's score minus the mean score of the other queries' ideals. Uses the embeddings that
+retrieval/04 cached, so it sends nothing once that notebook has run. Run from the repo root.
+"""
 import os
-os.environ["CBNB_LLM_PROVIDER"] = "nanogpt"
-import numpy as np, pandas as pd
+
+import numpy as np
+import pandas as pd
 from dotenv import load_dotenv
-load_dotenv(".env")
+
 from cbnb.datasets import load_wands_eval_set
 from cbnb.embeddings import Embedder
 
+load_dotenv(".env")
+os.environ["CBNB_LLM_PROVIDER"] = "nanogpt"
+
+QWEN_TASK = "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:"
+THREE = ["all-MiniLM-L6-v2", "Qwen3-Embedding-0.6B", "text-embedding-3-small"]
+DRAWS = 2000
+
 ev = load_wands_eval_set()
-docs = pd.DataFrame({"doc_id": ev.products.product_id.astype(str),
-                     "text": (ev.products.product_name.fillna("") + " " + ev.products.product_class.fillna("")).str.strip(),
-                     "cls": ev.products.product_class.fillna("")})
-labels = pd.DataFrame({"q": ev.labels.query_id, "doc_id": ev.labels.product_id.astype(str), "label": ev.labels.label}).drop_duplicates(["q", "doc_id"], keep="last")
+products = ev.products.reset_index(drop=True)
+texts = (products.product_name.fillna("") + " " + products.product_class.fillna("")).str.strip().tolist()
+row_of = {str(p): i for i, p in enumerate(products.product_id)}
 queries = ev.queries.reset_index(drop=True)
-pos = {d: i for i, d in enumerate(docs.doc_id)}
-# One ideal per query, fixed independently of any model: its first Exact label in the file.
-ideal = {}
-for q in queries.query_id:
-    ex = [pos[d] for d in labels[(labels.q == q) & (labels.label == "Exact")].doc_id if d in pos]
-    if ex: ideal[q] = ex[0]
-qs = [q for q in queries.query_id if q in ideal]
-qrow = {q: int(queries.index[queries.query_id == q][0]) for q in qs}
-TASK = "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:"
-models = {"all-MiniLM-L6-v2": (Embedder("local", "sentence-transformers/all-MiniLM-L6-v2"), ""),
-          "Qwen3-Embedding-0.6B": (Embedder("api", "Qwen/Qwen3-Embedding-0.6B"), TASK),
-          "text-embedding-3-small": (Embedder("api", "text-embedding-3-small"), "")}
-V = {}
-for name, (e, qp) in models.items():
-    V[name] = (e.encode([qp + t for t in queries["query"]]), e.encode(docs.text.tolist()))
+labels = ev.labels.assign(product_id=ev.labels.product_id.astype(str)).drop_duplicates(
+    ["query_id", "product_id"], keep="last")
 
-def scores(name, sub):
-    Q, D = V[name]
-    q = Q[[qrow[x] for x in sub]]; d = D[[ideal[x] for x in sub]]
-    M = q @ d.T                      # query i vs ideal doc j
-    DD = d @ d.T                     # ideal docs vs each other
-    n = len(sub); off = ~np.eye(n, dtype=bool)
-    diag = np.diag(M)
-    return {
-        "mean q-ideal sim": diag.mean(),
-        "mean doc-doc sim": DD[off].mean(),
-        "raw margin (diag - max row off)": (diag - np.where(off, M, -9).max(1)).mean(),
-        "sim - doc-doc": diag.mean() - DD[off].mean(),
-        "z within matrix": ((diag - M[off].mean()) / M[off].std()).mean(),
-        "margin / spread of off": ((diag - np.where(off, M, -9).max(1)) / M[off].std()).mean(),
-        "all correct": float((diag > np.where(off, M, -9).max(1)).all()),
-    }
+# One ideal per query, fixed independently of any model: its first Exact label.
+exact = labels[(labels.label == "Exact") & labels.product_id.isin(row_of)]
+ideal = exact.groupby("query_id").product_id.first().map(row_of)
+query_row = {q: i for i, q in enumerate(queries.query_id)}
+query_ids = [q for q in queries.query_id if q in ideal.index]
 
-e_q = models["Qwen3-Embedding-0.6B"][0]
-V["Qwen3 (no instruction)"] = (e_q.encode(queries["query"].tolist()), V["Qwen3-Embedding-0.6B"][1])
+qwen = Embedder("api", "Qwen/Qwen3-Embedding-0.6B")
+embedders = {
+    "all-MiniLM-L6-v2": (Embedder("local", "sentence-transformers/all-MiniLM-L6-v2"), ""),
+    "Qwen3-Embedding-0.6B": (qwen, QWEN_TASK),
+    "text-embedding-3-small": (Embedder("api", "text-embedding-3-small"), ""),
+    "Qwen3 (no instruction)": (qwen, ""),
+}
+vectors = {name: (e.encode([prefix + t for t in queries["query"]]), e.encode(texts))
+           for name, (e, prefix) in embedders.items()}
 
-def sep(name, sub):
-    """Per query: its ideal doc's score vs the other queries' ideal docs, in an index of only the ideals."""
-    Q, D = V[name]
-    M = Q[[qrow[x] for x in sub]] @ D[[ideal[x] for x in sub]].T
-    n = len(sub); off = ~np.eye(n, dtype=bool)
-    good = np.diag(M)
-    bad = np.array([M[i][off[i]] for i in range(n)])           # each query's bad results
-    return {"good": good.mean(), "bad": bad.mean(),
-            "separation (good - mean bad)": (good - bad.mean(1)).mean(),
-            "separation / spread of bad": ((good - bad.mean(1)) / M[off].std()).mean(),
-            "good ranked first": (good > bad.max(1)).mean()}
+
+def separation(name, ids):
+    """Score each query against an index of only these queries' ideal documents."""
+    q, d = vectors[name]
+    m = q[[query_row[x] for x in ids]] @ d[[ideal[x] for x in ids]].T
+    off = ~np.eye(len(ids), dtype=bool)
+    good = np.diag(m)
+    bad = m[off].reshape(len(ids), -1)
+    gap = good - bad.mean(axis=1)
+    return {"good": good.mean(), "bad": bad.mean(), "separation (good - mean bad)": gap.mean(),
+            "separation / spread of bad": (gap / m[off].std()).mean(),
+            "good ranked first": (good > bad.max(axis=1)).mean()}
+
 
 pd.set_option("display.width", 220)
-print("All 40 queries, index of their 40 ideal docs:")
-print(pd.DataFrame({m: sep(m, qs) for m in V}).T.round(3).to_string())
+print(f"All {len(query_ids)} queries, index of their ideal documents:")
+print(pd.DataFrame({name: separation(name, query_ids) for name in vectors}).T.round(3).to_string())
+
 rng = np.random.default_rng(0)
-K = ["separation (good - mean bad)", "separation / spread of bad"]
-out = {}
+scores = ["separation (good - mean bad)", "separation / spread of bad"]
+results = {}
 for n in (4, 10, 20):
-    a = {k: 0 for k in K}; b = {k: 0 for k in K}; first = []
-    for _ in range(2000):
-        sub = list(rng.choice(qs, n, replace=False))
-        s = {m: sep(m, sub) for m in V}
-        three = ["all-MiniLM-L6-v2", "Qwen3-Embedding-0.6B", "text-embedding-3-small"]
-        for k in K:
-            a[k] += max(three, key=lambda m: s[m][k]) == "text-embedding-3-small"
-            b[k] += s["Qwen3-Embedding-0.6B"][k] > s["Qwen3 (no instruction)"][k]
-        first.append(min(s[m]["good ranked first"] for m in three))
-    for k in K:
-        out[(k, n)] = {"picks text-embedding-3-small (of 3)": a[k] / 2000, "prefers Qwen3 with instruction": b[k] / 2000}
-    out[("every model ranks every good result first", n)] = {"picks text-embedding-3-small (of 3)": np.mean(np.array(first) == 1.0), "prefers Qwen3 with instruction": np.nan}
-print(pd.DataFrame(out).T.round(2).to_string())
+    picks_best = dict.fromkeys(scores, 0)
+    prefers_instruction = dict.fromkeys(scores, 0)
+    for _ in range(DRAWS):
+        ids = list(rng.choice(query_ids, n, replace=False))
+        s = {name: separation(name, ids) for name in vectors}
+        for k in scores:
+            picks_best[k] += max(THREE, key=lambda name: s[name][k]) == "text-embedding-3-small"
+            prefers_instruction[k] += s["Qwen3-Embedding-0.6B"][k] > s["Qwen3 (no instruction)"][k]
+    for k in scores:
+        results[(k, n)] = {"picks text-embedding-3-small (of 3)": picks_best[k] / DRAWS,
+                           "prefers Qwen3 with instruction": prefers_instruction[k] / DRAWS}
+print(pd.DataFrame(results).T.rename_axis(["score", "queries"]).round(2).to_string())

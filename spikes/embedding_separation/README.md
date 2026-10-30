@@ -25,11 +25,11 @@ nothing to a provider once that notebook has run:
 | Qwen3, instruction left off | 0.70 | 0.52 | 0.19 | 68% |
 
 - **It catches a broken setup with 4 queries.** Separation ranked Qwen3 with its instruction
-  above Qwen3 without it in 2,000 of 2,000 random draws of 4 queries. Raw similarity picks the
+  above Qwen3 without it in essentially every one of 2,000 random draws of 4 queries (at least 99.5%). Raw similarity picks the
   broken version, which scores highest (0.70).
 - **Raw separation is not comparable across models.** Unrelated pairs sit at 0.13 for MiniLM and
   0.26 for Qwen3. Divided by the spread of the bad scores, 20 queries agree with the
-  full-catalogue best model (`retrieval/04`'s nDCG@10) in 91% of draws, and 4 queries in 50%.
+  full-catalogue best model (`retrieval/04`'s nDCG@10) in 90% of draws, and 4 queries in 50%.
 - **Diverse queries test topic separation, not near misses.** MiniLM ranks its ideal first most
   often here, yet it has the lowest nDCG@10 across the full catalogue. The hard part of the full
   catalogue is near misses, and an index of a few ideals contains none.
