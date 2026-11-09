@@ -1,0 +1,93 @@
+{
+ "run_at": "2026-11-09T19:55:22Z",
+ "kind": "trial",
+ "commit": "8f97066",
+ "dirty": true,
+ "source_hash": "12a1b035d1c1ef30",
+ "status": "ok",
+ "seconds": 778,
+ "cbnb_version": "0.1.0",
+ "measures": {
+  "cheap $ per 1,000": 1.012824375,
+  "cheap correct %": 61.25000000000001,
+  "check AUC, strong would fix": 0.7341555327166838,
+  "check cascade held-out gain over coin flip": 1.8853449145202674,
+  "lookup AUC, strong would fix": 0.5164439876670093,
+  "lookup held-out gain over coin flip": 0.6703039409763818,
+  "only cheap right": 11.0,
+  "only strong right": 21.0,
+  "oracle correct %": 74.375,
+  "own-confidence AUC, strong would fix": 0.5113052415210688,
+  "own-confidence cascade held-out gain over coin flip": -1.5564407954056065,
+  "router AUC, strong would fix": 0.7297019527235354,
+  "router held-out gain over coin flip": 2.106371691509011,
+  "static clauses-to-strong gain over coin flip": 2.0967640126543614,
+  "strong $ per 1,000": 20.058421875,
+  "strong correct %": 67.5,
+  "strong reasoning % of bill": 63.403230719016875
+ },
+ "claims": {
+  "the strong model costs more than ten times as much per question": true,
+  "the strong model is more accurate overall": true,
+  "the cheap model is at least as accurate on fact questions": true,
+  "an oracle would be 5 points above the strong model at under a third of its price": true,
+  "sending fact questions to the strong model loses to a coin flip": true,
+  "sending clause questions to the strong model beats a coin flip": true,
+  "the static clause rule gains more over a coin flip than any router or cascade": false,
+  "no router or cascade recovers a third of the oracle's gain": true,
+  "no router or cascade lands more than 4 points from the coin-flip line": true,
+  "the model's own confidence does not rank its mistakes": true,
+  "the decision model's difficulty score ranks the cheap model's mistakes above chance": true,
+  "the lookup does not rank the questions the strong model fixes": true,
+  "most of both bills is reasoning nobody sees": true,
+  "deciding costs under 5% of the strong model's bill": true,
+  "the check cascade has a longer slow tail than the strong model alone": true
+ },
+ "errors": {},
+ "models": [
+  {
+   "role": "chat",
+   "model": "openai/gpt-5",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 161,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 810132,
+   "completion_tokens": 220808
+  },
+  {
+   "role": "chat",
+   "model": "openai/gpt-5-nano",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 161,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 810132,
+   "completion_tokens": 305463
+  },
+  {
+   "role": "embeddings",
+   "model": "sentence-transformers/all-MiniLM-L6-v2",
+   "provider": "this machine",
+   "routed": false,
+   "calls": 931,
+   "cached": 770,
+   "served": [],
+   "prompt_tokens": 0,
+   "completion_tokens": 0
+  },
+  {
+   "role": "decisions",
+   "model": "typesafe/jev-1.13",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 320,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 1750884,
+   "completion_tokens": 0
+  }
+ ]
+}
