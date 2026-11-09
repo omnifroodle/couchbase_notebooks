@@ -35,6 +35,8 @@ EXTRA_REQUIREMENTS: dict[str, list[tuple[str, str]]] = {
     "plots": [("matplotlib", "matplotlib>=3.7")],
     # trec_eval bindings for retrieval metrics; wheels, so no compiler needed.
     "metrics": [("ir_measures", "ir-measures>=0.3")],
+    # Isotonic regression, for turning a similarity score into a probability.
+    "calibration": [("sklearn", "scikit-learn>=1.3")],
 }
 
 
