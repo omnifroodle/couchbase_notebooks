@@ -114,8 +114,8 @@ The shared helper package, so the notebooks show the technique and not the plumb
 | `config.py` | Credential resolution: env → `.env` → Colab secrets → `getpass`. |
 | `couchbase_io.py` | Connect, provision scopes/collections, build Search indexes, bulk load, search. Every `ensure_*` is idempotent. |
 | `llm.py` | One client for any OpenAI-compatible endpoint. Structured output that degrades gracefully, a disk cache, token accounting (per call too, cache hits included), parallel `map`. |
-| `pricing.py` | List prices per token, read live from OpenRouter's public model list, so a notebook can turn token counts into dollars. |
-| `decisions.py` | Typed questions to a System One decision model through OpenRouter's `/decisions` endpoint. Separate from `llm.py`, and always needs `OPENROUTER_API_KEY`. |
+| `pricing.py` | List prices per token, read live from OpenRouter's or NanoGPT's public price list (chat models and decision models), so a notebook can turn token counts into dollars. |
+| `decisions.py` | Typed questions to a System One decision model (Jev) through OpenRouter or NanoGPT, whichever your configuration names. Separate from `llm.py`: it posts to a decisions endpoint, which a chat client cannot reach. |
 | `embeddings.py` | Local sentence-transformers or an API endpoint. Always normalised. |
 | `datasets.py` | Openly-licensed datasets, with small samples committed so notebooks run instantly. |
 | `profiles.py` | Generates the synthetic customer profiles, with known duplicates and deliberate lookalikes. Its docstring holds every rule the noise follows. |
