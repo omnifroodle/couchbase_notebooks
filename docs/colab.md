@@ -62,8 +62,8 @@ left sidebar → **Add new secret**. Use exactly these names:
 | `OPENAI_API_KEY`, `NANOGPT_API_KEY`, … | The key for the provider you chose. Only that one |
 
 Anything else in [`.env.example`](../.env.example) works the same way — `CBNB_LLM_BASE_URL`
-and `CBNB_LLM_API_KEY` for a `custom` endpoint, `OPENROUTER_API_KEY` for the decision-model
-experiment, `CBNB_EMBEDDING_BACKEND` to embed through your provider instead of locally.
+and `CBNB_LLM_API_KEY` for a `custom` endpoint, `CBNB_DECISION_PROVIDER` to ask decision models
+(Jev) through `openrouter` or `nanogpt` when your chat provider is neither, `CBNB_EMBEDDING_BACKEND` to embed through your provider instead of locally.
 
 Secrets belong to your Google account, not to a notebook, so you add them once and every
 notebook here can use them. Each notebook still needs **notebook access** switched on for

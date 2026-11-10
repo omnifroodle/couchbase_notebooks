@@ -165,6 +165,14 @@ def _tool_call(call: Any) -> ToolCall:
                     arguments=parsed if isinstance(parsed, dict) else {},
                     raw_arguments=raw or "{}", error=error)
 
+
+def _reasoning_tokens(usage: Any) -> int:
+    """Hidden reasoning tokens inside ``completion_tokens``, when the provider says."""
+    details = getattr(usage, "completion_tokens_details", None)
+    value = getattr(details, "reasoning_tokens", 0) if details is not None else 0
+    return value if isinstance(value, int) else 0
+
+
 class LLMAuthenticationError(RuntimeError):
     """The provider rejected the API key. Retrying will not help; fixing the key will."""
 
@@ -180,6 +188,9 @@ class Usage:
     seconds: float = 0.0
     #: Replies that came back empty or invalid and were retried.
     retries: int = 0
+    #: The part of ``completion_tokens`` a thinking model spent reasoning. Billed
+    #: as output, never shown. Zero when the provider does not report it.
+    reasoning_tokens: int = 0
 
     @property
     def total_tokens(self) -> int:
@@ -229,6 +240,17 @@ class ToolReply:
                  "function": {"name": call.name, "arguments": call.raw_arguments}}
                 for call in self.tool_calls]
         return message
+
+
+def _add(total: Usage, part: Usage) -> None:
+    """Fold one call's usage into a running total."""
+    total.calls += part.calls
+    total.cached_calls += part.cached_calls
+    total.prompt_tokens += part.prompt_tokens
+    total.completion_tokens += part.completion_tokens
+    total.reasoning_tokens += part.reasoning_tokens
+    total.seconds += part.seconds
+    total.retries += part.retries
 
 
 def _strictify(schema: dict[str, Any]) -> dict[str, Any]:
@@ -380,19 +402,32 @@ class LLM:
         digest = hashlib.sha256(blob).hexdigest()[:32]
         return self._cache_dir / f"{digest}.json"
 
-    def _cache_get(self, path: Path) -> Any | None:
+    def _cache_entry(self, path: Path) -> dict[str, Any] | None:
         if not self._cache_enabled or not path.exists():
             return None
         try:
-            return json.loads(path.read_text())["response"]
-        except (json.JSONDecodeError, KeyError, OSError):
+            entry = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
             return None
+        return entry if isinstance(entry, dict) and "response" in entry else None
 
-    def _cache_put(self, path: Path, payload: dict[str, Any], response: Any) -> None:
+    def _cache_get(self, path: Path) -> Any | None:
+        entry = self._cache_entry(path)
+        return None if entry is None else entry["response"]
+
+    def _cache_put(self, path: Path, payload: dict[str, Any], response: Any,
+                   spent: Usage | None = None) -> None:
         if not self._cache_enabled:
             return
+        entry: dict[str, Any] = {"request": payload, "response": response}
+        if spent is not None:
+            # What the original call cost, so a cached answer can still be priced.
+            entry["usage"] = {"calls": spent.calls, "prompt_tokens": spent.prompt_tokens,
+                              "completion_tokens": spent.completion_tokens,
+                              "reasoning_tokens": spent.reasoning_tokens,
+                              "seconds": spent.seconds}
         tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"request": payload, "response": response}, default=str))
+        tmp.write_text(json.dumps(entry, default=str))
         tmp.replace(path)
 
     # ------------------------------------------------------------------- chat
@@ -494,15 +529,19 @@ class LLM:
                           prompt_tokens=_tokens(usage, "prompt_tokens"),
                           completion_tokens=_tokens(usage, "completion_tokens"))
 
-    def _record(self, response: Any, elapsed: float) -> None:
+    def _record(self, response: Any, elapsed: float, spent: Usage | None = None) -> None:
         self._provenance(response=response)
         usage = getattr(response, "usage", None)
         with self._usage_lock:
-            self.usage.calls += 1
-            self.usage.seconds += elapsed
-            if usage is not None:
-                self.usage.prompt_tokens += getattr(usage, "prompt_tokens", 0) or 0
-                self.usage.completion_tokens += getattr(usage, "completion_tokens", 0) or 0
+            for total in (self.usage, spent):
+                if total is None:
+                    continue
+                total.calls += 1
+                total.seconds += elapsed
+                if usage is not None:
+                    total.prompt_tokens += getattr(usage, "prompt_tokens", 0) or 0
+                    total.completion_tokens += getattr(usage, "completion_tokens", 0) or 0
+                    total.reasoning_tokens += _reasoning_tokens(usage)
 
     # -------------------------------------------------------------- tool calling
 
@@ -573,11 +612,18 @@ class LLM:
         temperature: float | None = None,
         max_tokens: int = 1024,
         force_refresh: bool = False,
+        meter: Usage | None = None,
     ) -> M:
         """Return a validated instance of ``schema``.
 
         Walks down the structured-output ladder until something works, and
         remembers the rung so later calls start there.
+
+        Pass a fresh :class:`Usage` as ``meter`` to learn what this one answer
+        cost: every attempt it took, retries included, since each is billed. A
+        cached answer adds the tokens and seconds its original call spent and
+        counts as a cached call, so a re-run prices and times the same as the
+        run that paid.
         """
         json_schema = _strictify(schema.model_json_schema())
         payload = {
@@ -590,11 +636,18 @@ class LLM:
         }
         path = self._cache_path(payload)
         if not force_refresh:
-            hit = self._cache_get(path)
-            if hit is not None:
+            entry = self._cache_entry(path)
+            if entry is not None:
                 self.usage.cached_calls += 1
                 self._provenance(cached=True)
-                return schema.model_validate(hit)
+                if meter is not None:
+                    paid = entry.get("usage") or {}
+                    meter.cached_calls += 1
+                    meter.prompt_tokens += paid.get("prompt_tokens", 0)
+                    meter.completion_tokens += paid.get("completion_tokens", 0)
+                    meter.reasoning_tokens += paid.get("reasoning_tokens", 0)
+                    meter.seconds += paid.get("seconds", 0.0)
+                return schema.model_validate(entry["response"])
 
         from openai import (
             APIConnectionError,
@@ -613,6 +666,7 @@ class LLM:
         # Anything else (bad key, unknown model, ...) is raised as-is.
 
         start_at = _MODES.index(self._mode)
+        spent = Usage()
         last_error: Exception | None = None
         for mode in _MODES[start_at:]:
             for attempt in range(self.attempts):
@@ -627,6 +681,7 @@ class LLM:
                         json_schema=json_schema,
                         temperature=payload["temperature"],
                         max_tokens=max_tokens,
+                        spent=spent,
                     )
                 except unsupported as exc:
                     last_error = exc
@@ -641,6 +696,7 @@ class LLM:
                     # upstream rather than an unsupported mechanism.
                     last_error = exc
                     self.usage.retries += 1
+                    spent.retries += 1
                     if finish_reason == "length" and max_tokens < _MAX_TOKENS_CEILING:
                         # Cut off at the limit. A thinking model can spend the
                         # whole budget reasoning and answer nothing, and the same
@@ -649,7 +705,9 @@ class LLM:
                     continue
                 if mode != self._mode:
                     self._mode = mode
-                self._cache_put(path, payload, parsed.model_dump())
+                self._cache_put(path, payload, parsed.model_dump(), spent)
+                if meter is not None:
+                    _add(meter, spent)
                 return parsed
 
         raise RuntimeError(
@@ -668,6 +726,7 @@ class LLM:
         json_schema: dict[str, Any],
         temperature: float,
         max_tokens: int,
+        spent: Usage | None = None,
     ) -> tuple[str, str | None]:
         """The reply's text, and why it ended (``"length"`` if cut off at the limit)."""
         system_text = system or ""
@@ -709,7 +768,7 @@ class LLM:
             max_tokens=max_tokens,
             **kwargs,
         )
-        self._record(response, time.perf_counter() - started)
+        self._record(response, time.perf_counter() - started, spent)
         choice = response.choices[0]
         return choice.message.content or "", choice.finish_reason
 

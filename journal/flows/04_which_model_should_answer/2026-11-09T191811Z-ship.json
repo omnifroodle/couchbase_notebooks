@@ -1,0 +1,77 @@
+{
+ "run_at": "2026-11-09T19:18:11Z",
+ "kind": "ship",
+ "commit": "8f97066",
+ "dirty": true,
+ "source_hash": "12a1b035d1c1ef30",
+ "status": "ok",
+ "seconds": 710,
+ "cbnb_version": "0.1.0",
+ "measures": {
+  "cheap $ per 1,000": 1.021281875,
+  "cheap correct %": 59.375,
+  "check AUC, strong would fix": 0.6423432682425488,
+  "check cascade held-out gain over coin flip": -1.1611267808650538,
+  "lookup AUC, strong would fix": 0.5383693045563549,
+  "lookup held-out gain over coin flip": 0.18316033729439596,
+  "only cheap right": 12.0,
+  "only strong right": 21.0,
+  "oracle correct %": 72.5,
+  "own-confidence AUC, strong would fix": 0.5423090099349093,
+  "own-confidence cascade held-out gain over coin flip": 1.8477607583021367,
+  "router AUC, strong would fix": 0.6599862966769442,
+  "router held-out gain over coin flip": -0.5468752254718297,
+  "static clauses-to-strong gain over coin flip": 3.7959488839253765,
+  "strong $ per 1,000": 19.558796875,
+  "strong correct %": 65.0,
+  "strong reasoning % of bill": 62.744784755580724
+ },
+ "claims": {},
+ "errors": {},
+ "models": [
+  {
+   "role": "chat",
+   "model": "openai/gpt-5",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 161,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 810132,
+   "completion_tokens": 212771
+  },
+  {
+   "role": "chat",
+   "model": "openai/gpt-5-nano",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 161,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 810132,
+   "completion_tokens": 309261
+  },
+  {
+   "role": "embeddings",
+   "model": "sentence-transformers/all-MiniLM-L6-v2",
+   "provider": "this machine",
+   "routed": false,
+   "calls": 931,
+   "cached": 770,
+   "served": [],
+   "prompt_tokens": 0,
+   "completion_tokens": 0
+  },
+  {
+   "role": "decisions",
+   "model": "typesafe/jev-1.13",
+   "provider": "NanoGPT",
+   "routed": true,
+   "calls": 320,
+   "cached": 0,
+   "served": [],
+   "prompt_tokens": 1751110,
+   "completion_tokens": 0
+  }
+ ]
+}

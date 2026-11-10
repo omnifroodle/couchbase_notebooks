@@ -1,0 +1,226 @@
+# Slide plan for notebooks/flows/04_which_model_should_answer.ipynb
+#
+# Drafted by `make review-slides NB=04_which_model_should_answer`, then edited and committed by hand.
+# `make slides` builds the deck from this file; without it the deck falls back
+# to the generator's own rules.
+#
+#   setup       drop the section: it only makes the notebook run
+#   idea        the section's point, shown in bold above its prose
+#   paragraphs  which of the section's paragraphs reach the slide
+#   code        per cell: show it, summarize it to its comment, or hide it
+#   evidence    the cell whose output is the section's result; false for none
+#
+# `hash` is what the entry was planned against. Change the section in the
+# notebook and the next review replans that entry and leaves the others alone.
+notebook: notebooks/flows/04_which_model_should_answer.ipynb
+summary_heading: In short
+summary:
+- A cheap model and a strong one answer the same 160 contract questions, and every answer
+  is graded against a lawyer's annotation.
+- Each routing strategy is then replayed exactly over those answers, so its accuracy and its
+  bill are known rather than sampled.
+- 'Every router is compared against two references: a coin flip at the same price, and an
+  oracle that knew which questions needed the strong model.'
+- 'The claim: none of the four routers built here beats the coin flip by more than about five
+  points, and none recovers a third of the oracle''s gain.'
+sections:
+- heading: 1. Two models, two prices
+  setup: false
+  idea: Introduce the cheap and strong answering models, and the formula that turns tokens
+    into dollars.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 3
+    mode: summarize
+    why: price lookup, one line is enough
+  - cell: 5
+    mode: summarize
+    why: data loading
+  - cell: 6
+    mode: summarize
+    why: index building, setup
+  - cell: 8
+    mode: summarize
+    why: pipeline plumbing
+  evidence:
+    cell: 3
+    says: The two model ids with their live per-token prices and the multiple between them.
+    explain: false
+  hash: e283a7dc3d97
+- heading: 2. The same answer at two prices
+  setup: false
+  idea: 'One easy question answered by both models shows what the extra spend buys: nothing,
+    when the quotes agree.'
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 10
+    mode: summarize
+    why: loop over two models, comment suffices
+  evidence:
+    cell: 10
+    says: Both models' quotes, token counts and costs on one question, with the cost multiple.
+    explain: false
+  hash: 47e0bb4305e1
+- heading: 3. Every question, both models
+  setup: false
+  idea: Both models answer all 160 judged questions, so the price and accuracy gap between
+    them is measured on the same questions.
+  paragraphs:
+  - 0
+  - 2
+  code:
+  - cell: 13
+    mode: summarize
+    why: grading logic, not the point
+  - cell: 14
+    mode: summarize
+    why: batch answering
+  - cell: 15
+    mode: summarize
+    why: scoring table builder
+  - cell: 17
+    mode: summarize
+    why: disagreement counts
+  - cell: 19
+    mode: summarize
+    why: task-type split
+  evidence:
+    cell: 15
+    says: Outcome counts, accuracy, dollars per thousand questions and median seconds for
+      each model.
+    explain: true
+  hash: 8096498da0d5
+- heading: 4. The lines a router has to beat
+  setup: false
+  idea: Every routing rule is replayed exactly over the stored answers, against a coin flip
+    and an oracle as reference points.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 22
+    mode: summarize
+    why: replay machinery, too long for a slide
+  evidence:
+    cell: 22
+    says: 'The reference rows: all cheap, all strong, the oracle and the two static task-type
+      rules, with accuracy and cost.'
+    explain: true
+  hash: f5d66f4f9bf0
+- heading: 5. A router that reads the question first
+  setup: false
+  idea: A decision model rates each question's difficulty before anyone answers, and the resulting
+    router is swept and plotted against its references.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 25
+    mode: summarize
+    why: decision calls in a thread pool
+  - cell: 27
+    mode: summarize
+    why: AUC helper
+  - cell: 29
+    mode: summarize
+    why: threshold sweep
+  - cell: 30
+    mode: summarize
+    why: plotting code
+  evidence:
+    cell: 30
+    says: The router's curve of accuracy against dollars per thousand questions, with the
+      coin-flip line, the oracle and the static rules marked.
+    explain: true
+  hash: dfb032b1f5b8
+- heading: 6. A router made of search
+  setup: false
+  idea: A router can be a lookup of similar past questions instead of a model call, costing
+    one embedding and one search.
+  paragraphs:
+  - 0
+  code:
+  - cell: 33
+    mode: summarize
+    why: embedding timing
+  - cell: 34
+    mode: summarize
+    why: neighbour scoring
+  evidence:
+    cell: 34
+    says: The lookup's AUC beside the router's two signals.
+    explain: true
+  hash: afab307765d8
+- heading: 7. Answer cheaply, check, escalate
+  setup: false
+  idea: A cascade judges the cheap model's actual answer, either by its own confidence or
+    by a decision-model check.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 37
+    mode: summarize
+    why: decision-model check calls
+  - cell: 39
+    mode: summarize
+    why: adds cascades to the chart
+  evidence:
+    cell: 37
+    says: AUC for the two cascade signals, including the model's own confidence near 0.5.
+    explain: true
+  hash: 3a0f37a08090
+- heading: 8. Pick a threshold, then test it on questions it did not see
+  setup: false
+  idea: Each rule gets one threshold chosen on half the questions and scored on the other
+    half, at a fixed budget.
+  paragraphs:
+  - 0
+  - 1
+  code:
+  - cell: 42
+    mode: summarize
+    why: cross-validated threshold logic
+  - cell: 43
+    mode: summarize
+    why: scoreboard assembly
+  evidence:
+    cell: 43
+    says: 'The held-out scoreboard: every rule''s accuracy, cost, gain over its coin flip,
+      share of the oracle''s gain and latency.'
+    explain: true
+  hash: 7a7e08199657
+- heading: 9. Where the money went
+  setup: false
+  idea: Each model's bill splits into reading the excerpts, writing the answer, and reasoning
+    the reply never shows.
+  paragraphs:
+  - 0
+  code:
+  - cell: 46
+    mode: summarize
+    why: bill anatomy table builder
+  evidence:
+    cell: 46
+    says: Tokens read and written, reasoning share of each bill, and dollars for all questions,
+      per model and for the decision model.
+    explain: true
+  hash: 136b449cc6eb
+- heading: What produced these results
+  setup: false
+  idea: Name the exact models whose answers produced every number above.
+  paragraphs:
+  - 0
+  code:
+  - cell: 50
+    mode: summarize
+    why: one-line run card
+  evidence:
+    cell: 50
+    says: The run card naming the models and provider used.
+    explain: false
+  hash: 4fb1814ae0b4

@@ -277,35 +277,36 @@ def _api_embeddings_deep() -> tuple[bool, str, str]:
 # --- decision model --------------------------------------------------------
 
 def _decision_model_unset() -> list[str]:
-    from cbnb.decisions import KEY_ENV
+    from cbnb.decisions import decision_provider
 
-    _settings()  # loads .env
-    return [] if os.environ.get(KEY_ENV) else [KEY_ENV]
+    where = decision_provider()
+    return [] if os.environ.get(where.key_env) else [where.key_env]
 
 
 def _decision_model_shallow() -> tuple[bool, str, str]:
     from cbnb.config import get
-    from cbnb.decisions import KEY_ENV
+    from cbnb.decisions import decision_provider
 
-    _settings()  # loads .env
-    if not get(KEY_ENV, required=False):
-        return False, f"no OpenRouter key ({KEY_ENV} unset)", _fix_setting(KEY_ENV)
-    return True, "OpenRouter key present", ""
+    where = decision_provider()  # loads .env
+    if not get(where.key_env, required=False):
+        return False, f"no {where.label} key ({where.key_env} unset)", _fix_setting(where.key_env)
+    return True, f"{where.label} key present", ""
 
 
 def _decision_model_deep() -> tuple[bool, str, str]:
     ok, detail, fix = _decision_model_shallow()
     if not ok:
         return ok, detail, fix
-    from cbnb.decisions import DEFAULT_MODEL, decide, noul
+    from cbnb.decisions import DEFAULT_MODEL, decide, decision_provider, noul
 
+    where = decision_provider()
     try:
         result = decide("The sky is blue.", {"ok": noul("Is this statement about the sky?")})
     except Exception as exc:  # noqa: BLE001
         return False, f"decision call failed: {str(exc).strip().splitlines()[0]}", (
-            f"{DEFAULT_MODEL} is in limited access: check your OpenRouter account can use it"
+            f"{DEFAULT_MODEL} may be in limited access: check your {where.label} account can use it"
         )
-    return True, f"{result.model} answered in {result.seconds * 1000:.0f} ms", ""
+    return True, f"{where.label} / {result.model} answered in {result.seconds * 1000:.0f} ms", ""
 
 
 # --- everything else -------------------------------------------------------
@@ -368,7 +369,7 @@ CAPABILITIES: dict[str, Capability] = {
                    _api_embeddings_shallow, _api_embeddings_deep, unset=_llm_unset),
         Capability("dataset-download", "Downloading a full dataset",
                    _dataset_download_shallow, _dataset_download_deep),
-        Capability("decision-model", "A System One decision model, via OpenRouter",
+        Capability("decision-model", "A System One decision model (OpenRouter or NanoGPT)",
                    _decision_model_shallow, _decision_model_deep,
                    unset=_decision_model_unset),
         Capability("ram-8gb", "At least 8 GiB of memory", _ram_8gb),

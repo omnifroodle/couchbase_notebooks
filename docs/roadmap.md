@@ -71,6 +71,56 @@ cannot carry an empty directory, and placeholder files are worse than no tree.
 | 2026-09-29 | `experiments/02` is this the same customer? | Jev as the judge in entity resolution, on synthetic customer profiles. First notebook of the entity-resolution thread below. |
 | 2026-10-29 | `retrieval/04` what a score of 0.7 means | Calibration as a method: three embedding models, the WANDS judgements plus 41 CUAD questions the catalogue can't answer, every hit logged and read with SQL++. A band per model, chosen on half the questions and checked on the other half, then moved by shortening and by dropping instructions. The corpus is three tables and the models a per-provider list, so a reader swaps in their own of both. |
 | 2026-10-05 | `experiments/04` the agent said it was done | An agent graded on the records it leaves, not its tool calls: a Couchbase support desk, nine tools, ten tasks, every attempt in its own clean copy. Trajectory check against state check, one run against ten, and one fix tested (show the agent a diff of its own changes). First notebook to touch evaluation layers 4 and 5. |
+| 2026-11-09 | `flows/04` which model should answer? | A cheap and a strong model answer `flows/03`'s k=20 pipeline on the same 160 questions; every routing rule is then replayed over the stored answers, against a coin flip at equal cost and an oracle. The strong model costs ~20× as much and is a few points more accurate; an oracle would beat it at under a third of the price, and the Jev router, a nearest-neighbour lookup and two cascades each recover under a third of that gain. See [below](#what-flows04-found). Research behind it: [`research/model-selection-tokenomics.md`](research/model-selection-tokenomics.md). |
+
+### What `flows/04` found
+
+Shipped 2026-11-09 on NanoGPT (`openai/gpt-5-nano` against `openai/gpt-5`, 25× apart on both
+OpenRouter's and NanoGPT's price lists; Jev through NanoGPT's `/v1/decisions`), about 12 minutes
+and $3.50 at list price per run. One ship and three trials of the final code; `make journal`
+holds them.
+
+- **The lesson is the one the research predicted.** The oracle sits well above a coin flip, and no
+  rule that has to guess recovers a third of that gain: the Jev difficulty router, the Jev check
+  cascade, the model's own confidence and a nearest-neighbour lookup all land within about five points
+  of the coin-flip line, some above and some below, and which side moves between runs. A static
+  "clauses to the strong model, facts to the cheap one" table gains a few points over the line in
+  every run with no model call, but did not reliably beat the best model-based rule.
+- **Single runs mislead.** Across the first two runs the held-out gain of three of the four
+  model-based rules changed sign, and the strong model's edge over the cheap one went from
+  p = 0.02 to p = 0.16. The cheap model's accuracy moves several points between runs of the same
+  code. Three claims flapped across the trials. Two were weakened (the oracle's size over the strong
+  model, how far a rule sits from the coin-flip line), one was cut (that the static table beats
+  every router), and one threshold was loosened (the lookup's AUC). None of the changed claims has
+  been evaluated by a trial since. Run `make trial NB=flows/04 N=3` after any further change.
+- **What held in every trial.** The strong model is more accurate overall and wins about twice as
+  many disagreements; the cheap model is at least as accurate on fact questions; most of both
+  bills is reasoning nobody sees (about 70% and 60%); the decision calls cost under 5% of the
+  strong model's bill; the model's own confidence ranks mistakes no better than a coin; and the
+  check cascade's slow tail is longer than the strong model alone.
+- **A reasoning model needs room.** A 2,000-token cap cut reasoning replies off before they
+  answered, so about 40% of the cheap model's calls were retried and billed twice. 8,000 lets
+  the first call finish. The anatomy table shows calls per question so a retry is visible.
+
+Plumbing this needed: `LLM.structured(..., meter=Usage())` for
+per-call token counts (cached answers keep the tokens and seconds they originally cost),
+reasoning tokens in `Usage`, `cbnb.pricing` reading list prices for chat and decision models from
+OpenRouter or NanoGPT, and a provider-neutral `cbnb.decisions`. NanoGPT reports `reasoning_tokens`
+as 0 whatever the model does and reports a cost of 0 for Jev, so the notebook estimates hidden
+tokens from the output billed beyond the visible reply, and `decide()` prices each call at the
+model's list price.
+
+Open:
+
+- **Re-ship the other decision-model notebooks.** `experiments/01`, `experiments/02` and
+  `enrich/03` still tell the reader to set an OpenRouter key and say Jev's cost is "what
+  OpenRouter reported". Their stored outputs came from OpenRouter and are true as shipped, but
+  `decide()` now follows `CBNB_LLM_PROVIDER`, and costs are list-priced.
+- **OpenRouter's path is untested from here.** The OpenRouter key was expired for the whole of
+  this work, so only NanoGPT was exercised live. OpenRouter still uses its alpha `/decisions`
+  endpoint with an unchanged request body.
+- **Worktrees share one editable install of `cbnb`**, which resolves to whichever worktree
+  installed last. Run notebooks from a worktree with `PYTHONPATH` set to it.
 
 ### What the retrieval split taught
 
